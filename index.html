@@ -26,6 +26,7 @@ input,select{font:inherit}
 #app{min-height:100%;display:flex;flex-direction:column;padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
 header.bar{background:var(--navy);color:#fff;display:flex;align-items:center;gap:12px;padding:10px 16px;flex-wrap:wrap}
 header.bar h1{font-size:20px;margin:0;flex:1;min-width:120px}
+header.bar .logo{width:34px;height:34px;border-radius:8px;background:#fff;vertical-align:middle;margin-right:4px}
 header.bar .ver{font-size:12px;font-weight:600;color:var(--lime);white-space:nowrap}
 .score{font-size:30px;font-weight:800;letter-spacing:.5px;font-variant-numeric:tabular-nums}
 .score small{font-size:inherit;font-weight:600;opacity:.7;margin:0 6px}
@@ -78,10 +79,8 @@ main{flex:1;padding:16px;display:flex;flex-direction:column;gap:16px;max-width:1
 .ratio .btn{border-color:rgba(255,255,255,.8);background:#fff;color:var(--ink)}
 .log{font-size:14px;max-height:180px;overflow:auto}
 .log div{padding:4px 0;border-bottom:1px solid var(--line)}
-.field-wrap{width:100%;max-width:min(1000px,calc((100vh - 440px) * 2.35));min-width:320px;margin:0 auto}
+.field-wrap{width:100%;max-width:min(1000px,max(320px,calc((100dvh - 200px) * 2.35)));margin:0 auto}
 svg.field{width:100%;height:auto;display:block;touch-action:none}
-svg.field.vert{width:auto;height:max(300px,calc(100vh - 380px));height:max(300px,calc(100dvh - 380px));max-width:100%;margin:0 auto}
-.field-wrap:has(svg.vert){max-width:none;min-width:0}
 table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
 th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
 th:first-child,td:first-child{text-align:left}
@@ -122,6 +121,7 @@ label.f input{padding:12px;border:2px solid var(--line);border-radius:10px;font-
 @media (max-width:600px){
   main{padding:10px;gap:10px}
   .card{padding:12px;border-radius:14px}
+  .card .field-wrap{width:calc(100% + 24px);max-width:none;margin:0 -12px}
   .card h2{font-size:16px;margin-bottom:8px}
   header.bar{padding:8px 10px;gap:8px;position:sticky;top:env(safe-area-inset-top,0px);z-index:20}
   header.bar h1{font-size:17px}
@@ -181,7 +181,7 @@ label.f input{padding:12px;border:2px solid var(--line);border-radius:10px;font-
    so "Annulla" just removes the last event.
    ============================================================ */
 
-const APP_VERSION = 'v6 · 25/09/2026';  // keep in sync with CACHE in sw.js
+const APP_VERSION = 'v7 · 25/09/2026';  // keep in sync with CACHE in sw.js
 const STORE_KEY = 'bubbaStats.v1';
 const FIELD = {L:75, W:25, EZ:15};          // metres; receiving goal line at x=60
 const GOAL_X = FIELD.L - FIELD.EZ;
@@ -377,7 +377,7 @@ function storageWarn(){
 
 function viewHome(){
   const games = DB.games.slice().reverse();
-  return `<header class="bar"><h1>🥏 ${esc(DB.teamName)} Stats <span class="ver">${APP_VERSION}</span></h1>
+  return `<header class="bar"><h1><img class="logo" src="logo-96.png" alt=""> ${esc(DB.teamName)} Stats <span class="ver">${APP_VERSION}</span></h1>
     <button class="btn ghost" data-a="roster">Roster (${DB.roster.length})</button></header>
   <main>${storageWarn()}
     <div class="card"><div class="row" style="justify-content:space-between">
@@ -518,17 +518,15 @@ function phaseLine(g, st, lastPt){
   </div>`;
 }
 
-const isVert = () => window.matchMedia('(max-width: 700px) and (orientation: portrait)').matches;
-let lastVert = isVert();
-window.addEventListener('resize', () => { const v = isVert(); if(v !== lastVert){ lastVert = v; render(); } });
-function fieldSVG(dots, interactive, play){
-  // drawn in field metres (x along the 75 m length, puller at x=0); on a phone held upright the field is rotated to run bottom→top
-  // play=true: D/turnover location, x=0 = back line of the end zone we defend, we attack towards x=75
-  const m = 6, L = FIELD.L, W = FIELD.W, v = isVert(), fid = play ? 'evField' : 'pullField', gid = play ? 'evG' : 'pullG';
-  const tp = (x, y) => v ? [y, L - x] : [x, y];
-  const txt = (x, y, size, str) => { const [a, b] = tp(x, y); return `<text x="${a}" y="${b}" font-size="${size}" text-anchor="middle" fill="#5B6570" dominant-baseline="middle">${str}</text>`; };
-  let s = `<svg class="field ${v ? 'vert' : ''}" id="${interactive ? fid : ''}" viewBox="${-m} ${-m} ${(v ? W : L) + 2*m} ${(v ? L : W) + 2*m}" xmlns="http://www.w3.org/2000/svg">
-    <g id="${interactive ? gid : ''}" ${v ? `transform="translate(0 ${L}) rotate(-90)"` : ''}>
+// Direction Bubba attacks on the scorer's screen: ends swap every point, g.dir0 is the direction on point 1
+const attRight = (g, n) => (n % 2 === 1) === ((g.dir0 || 'R') === 'R');
+function fieldSVG(dots, interactive, opt = {}){
+  // drawn in field metres (x along the 75 m length, puller at x=0), always horizontal; opt.flip mirrors it so x runs right→left
+  // opt.play: D/turnover location, x=0 = back line of the end zone we defend, we attack towards x=75
+  const m = 6, L = FIELD.L, W = FIELD.W, f = !!opt.flip, fid = opt.play ? 'evField' : 'pullField', gid = opt.play ? 'evG' : 'pullG';
+  const txt = (x, y, size, str) => `<text x="${f ? L - x : x}" y="${y}" font-size="${size}" text-anchor="middle" fill="#5B6570" dominant-baseline="middle">${str}</text>`;
+  let s = `<svg class="field" id="${interactive ? fid : ''}" viewBox="${-m} ${-m} ${L + 2*m} ${W + 2*m}" xmlns="http://www.w3.org/2000/svg">
+    <g id="${interactive ? gid : ''}" ${f ? `transform="translate(${L} 0) scale(-1 1)"` : ''}>
     <rect x="${-m}" y="${-m}" width="${L + 2*m}" height="${W + 2*m}" fill="#E9DCC0"/>
     <rect x="0" y="0" width="${L}" height="${W}" fill="#F7EFD9" stroke="#131E29" stroke-width=".35"/>
     <rect x="0" y="0" width="${FIELD.EZ}" height="${W}" fill="#D8D2C0" stroke="#131E29" stroke-width=".35"/>
@@ -537,13 +535,13 @@ function fieldSVG(dots, interactive, play){
     ${[10,20].map(d => `<line x1="${GOAL_X-d}" y1="0" x2="${GOAL_X-d}" y2="${W}" stroke="#131E29" stroke-opacity=".15" stroke-width=".25" stroke-dasharray="1 1"/>`).join('')}`;
   for(const d of dots) s += `<circle cx="${d.x}" cy="${d.y}" r="${d.r || 1}" fill="${d.c}" fill-opacity=".85" stroke="#fff" stroke-width=".25"><title>${esc(d.t || '')}</title></circle>`;
   s += '</g>';
-  if(play) return s + txt(FIELD.EZ/2, W/2, v ? 3 : 2.2, 'difendiamo') + txt(GOAL_X + FIELD.EZ/2, W/2, v ? 3 : 2.2, 'attacchiamo') +
-    (v ? txt(-2.8, W/2, 1.8, '↑ attacco ↑') : txt(L/2, -2.6, 2, '→ direzione del nostro attacco →')) + '</svg>';
-  s += txt(FIELD.EZ/2, W/2, v ? 3 : 2.2, 'chi lancia') + txt(GOAL_X + FIELD.EZ/2, W/2, v ? 3 : 2.2, 'chi riceve');
-  s += v ? txt(GOAL_X - 10, W + 3, 2, '10m') + txt(GOAL_X - 20, W + 3, 2, '20m') + txt(-2.8, W/2, 1.8, '↑ pull ↑')
-         : txt(GOAL_X - 10, W + 2.8, 1.7, '10 m') + txt(GOAL_X - 20, W + 2.8, 1.7, '20 m') + txt(L/2, -2.6, 2, '→ direzione del pull →   (fuori dal rettangolo = pull fuori)');
+  const arrow = t => f ? `← ${t} ←` : `→ ${t} →`;
+  s += txt(FIELD.EZ/2, W/2, 2.2, opt.play ? 'difendiamo' : 'chi lancia') + txt(GOAL_X + FIELD.EZ/2, W/2, 2.2, opt.play ? 'attacchiamo' : 'chi riceve');
+  s += txt(GOAL_X - 10, W + 2.8, 1.7, '10 m') + txt(GOAL_X - 20, W + 2.8, 1.7, '20 m');
+  s += txt(L/2, -2.6, 2, opt.play ? arrow('direzione del nostro attacco') : arrow('direzione del pull') + '   (fuori dal rettangolo = pull fuori)');
   return s + '</svg>';
 }
+const flipBtn = '<button class="btn" data-a="flipdir" title="Se il campo sullo schermo è girato al contrario rispetto a quello reale">⇄ Gira il campo</button>';
 
 function phasePull(g, st){
   const pt = st.cur;
@@ -559,10 +557,10 @@ function phasePull(g, st){
   return `<div class="status ${weP ? 'd' : 'o'}">Punto ${pt.n} · ${weP ? 'PULL NOSTRO' : 'PULL LORO'}</div>
   ${weP ? `<div class="card"><h2>Chi lancia il pull?</h2><div class="grid-players pullers">${pt.line.map(id => pbtn(id, UI.pullPuller === id ? 'sel' : '', 'data-a="puller"')).join('')}</div></div>` : ''}
   <div class="card"><h2>Tocca dove atterra il pull</h2>
-    <div class="field-wrap">${fieldSVG(prevDots, true)}</div>
+    <div class="field-wrap">${fieldSVG(prevDots, true, {flip: attRight(g, pt.n) !== weP})}</div>
     <div class="row" style="margin-top:10px;justify-content:space-between">
       <span class="muted">In grigio i pull precedenti ${weP ? 'nostri' : 'loro'} di questa partita.</span>
-      <button class="btn" data-a="skippull">Salta (non registrare il pull)</button></div>
+      <span class="row">${flipBtn}<button class="btn" data-a="skippull">Salta (non registrare il pull)</button></span></div>
   </div>`;
 }
 
@@ -577,8 +575,8 @@ function phasePlay(g, st){
       prev.push({x: e.x, y: e.y, c: e.k === 'd' || e.k === 'call' ? '#3FA34D' : '#C0392B', r: .7, t: describe(e)});
     return `${ratioBanner(g, pt.n, true)}<div class="prompt"><span>DOVE? ${esc(describe(pend.e))}</span>
       <span class="row"><button class="btn" data-a="noloc">Salta</button><button class="btn" data-a="cancel">Annulla</button></span></div>
-      <div class="card"><div class="field-wrap">${fieldSVG(prev, true, true)}</div>
-      <div class="muted" style="margin-top:8px">Tocca il punto del campo. Verdi = nostre D, rossi = nostri turnover già registrati.</div></div>`;
+      <div class="card"><div class="field-wrap">${fieldSVG(prev, true, {play: true, flip: !attRight(g, pt.n)})}</div>
+      <div class="row" style="margin-top:8px;justify-content:space-between"><span class="muted">Tocca il punto del campo. Verdi = nostre D, rossi = nostri turnover già registrati.</span>${flipBtn}</div></div>`;
   }
   if(pend){
     const labels = {goal_s:'Chi ha SEGNATO?', goal_a:'Chi ha fatto l\'ASSIST?', tt:'Chi ha sbagliato il LANCIO?', td:'Chi ha sbagliato la PRESA?', ts:'Chi ha fatto STALL OUT?', d:'Chi ha fatto la DIFESA?', call:'Chi ha fatto il CALLAHAN?'};
@@ -731,6 +729,7 @@ document.addEventListener('click', ev => {
     case 'err': case 'tg': { const e = {k: a}; push(e); toast(describe(e)); if(a === 'tg') UI.lineSel = []; return; }
     case 'noloc': { const e = UI.pending.e; UI.pending = null; push(e); toast(describe(e)); return; }
     case 'cancel': UI.pending = null; break;
+    case 'flipdir': g.dir0 = (g.dir0 || 'R') === 'R' ? 'L' : 'R'; save(); break;
     case 'dset': if(derive(g).dset !== b.dataset.v) push({k:'dset', v: b.dataset.v}); return;
     case 'noassist': { const e = {k:'goal', s: UI.pending.s, a: null}; UI.pending = null; push(e); toast(describe(e)); return; }
     case 'pick': {

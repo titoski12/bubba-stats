@@ -22,9 +22,12 @@ Rispondi in italiano, in modo conciso.
     possessi divisi per chi fa il pull con codici M/A/T/D, riepilogo; sopra ogni blocco un PNG del campo con pull, D e turnover,
     disegnato su canvas da `fieldPNG()` e inserito come drawing), poi Giocatori, Squadra, Punti, Linee, Pull, Eventi.
     `download()` usa la share sheet (iOS) o un normale download.
-  - Layout responsive: iPad e telefono (≤600px: giocatori 3+2, campo pull verticale in portrait).
+  - Layout responsive: iPad e telefono (≤600px: giocatori 3+2, campo sempre orizzontale).
+  - Campo orientato nella direzione di gioco: `attRight(g, n)`; le squadre cambiano lato a ogni punto,
+    `g.dir0` ('R'/'L') è la direzione del nostro attacco al punto 1, "⇄ Gira il campo" la inverte.
 - `sw.js`: service worker cache-first → funziona offline. **A ogni modifica dei file incrementa `CACHE`** (`bubba-stats-v4` → `v5`…)
   **e allinea `APP_VERSION` in `index.html`** (stesso numero + data), mostrata in cima alla home.
+- Logo CUS Brescia Ultimate: icone (`icon-192/512`, `apple-touch-icon`) e `logo-96.png` nell'header della home.
 - `manifest.webmanifest` + icone: installabile con "Aggiungi alla schermata Home".
 - Campo: 75x25 m, mete 15 m, brick a 15 m dalle linee di meta. Colori brand: navy #003057, lime #C0D725.
 
