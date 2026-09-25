@@ -1,0 +1,30 @@
+# Bubba Stats — contesto per Claude Code
+
+Progetto di Giovanni (CUS Ultimate Brescia, squadra "Bubba"). Web app per raccogliere le statistiche
+live delle partite di **beach ultimate 5vs5 mixed** da iPhone/iPad, anche **senza internet**.
+Rispondi in italiano, in modo conciso.
+
+## Com'è fatta
+- `index.html`: tutta l'app (HTML+CSS+JS vanilla, nessuna dipendenza, nessun build step).
+  - Stato in `localStorage` (chiave `bubbaStats.v1`): roster, partite, ognuna con una lista di eventi append-only.
+    Tutto (punteggio, possesso, statistiche) è derivato dagli eventi in `derive()`; "Annulla" = pop dell'ultimo evento.
+  - Eventi: `start` (linea, O/D), `pull` (team, lanciatore, x/y in metri, x=0 fondo di chi lancia, meta ricevente da x=60),
+    `goal` (s=marcatore, a=assist), `call` (Callahan), `tt` TO lancio, `td` TO presa, `ts` stall out, `tx` TO altro,
+    `d` difesa, `err` errore loro, `tg` meta loro, `line` cambio linea.
+  - Regola rapporto ABBA: `ratioFor(g, n)` con `g.firstRatio` ('F' o 'M') scelto alla creazione partita.
+  - Export Excel con writer .xlsx interno (zip STORE + XML): fogli Giocatori, Squadra, Punti, Linee, Pull, Eventi.
+    `download()` usa la share sheet (iOS) o un normale download.
+  - Layout responsive: iPad e telefono (≤600px: giocatori 3+2, campo pull verticale in portrait).
+- `sw.js`: service worker cache-first → funziona offline. **A ogni modifica dei file incrementa `CACHE`** (`bubba-stats-v1` → `v2`…).
+- `manifest.webmanifest` + icone: installabile con "Aggiungi alla schermata Home".
+- Campo: 75x25 m, mete 15 m, brick a 15 m dalle linee di meta. Colori brand: navy #003057, lime #C0D725.
+
+## Obiettivo immediato
+Creare il repo GitHub `bubba-stats`, fare il push e attivare **GitHub Pages** (branch `main`, root).
+URL atteso: `https://<utente>.github.io/bubba-stats/`.
+
+## Idee aperte
+- "Importa e aggiungi" per unire backup JSON di più telefoni (oggi "Ripristina backup" sostituisce tutto).
+
+## Test
+Servire la cartella con `python3 -m http.server` e provare in Safari/Chrome (anche offline dopo il primo caricamento).

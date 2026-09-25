@@ -1,0 +1,16 @@
+{
+  "name": "Bubba Stats",
+  "short_name": "Bubba Stats",
+  "description": "Statistiche live per il beach ultimate 5vs5 mixed",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F3F5F7",
+  "theme_color": "#003057",
+  "lang": "it",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ]
+}

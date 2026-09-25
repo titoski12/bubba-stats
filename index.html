@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Bubba Stats">
+<meta name="theme-color" content="#003057">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<title>Bubba Stats</title>
+<style>
+:root{
+  color-scheme:light;
+  --navy:#003057; --ink:#131E29; --lime:#C0D725; --mist:#B0B2B5;
+  --bg:#F3F5F7; --card:#FFFFFF; --line:#D9DDE2; --muted:#5B6570;
+  --red:#C8323C; --orange:#E07A1F; --blue:#1F6FD1; --f:#B8338A; --m:#1F6FD1;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font:16px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  -webkit-user-select:none;user-select:none;touch-action:manipulation}
+button{font:inherit;color:inherit;border:0;cursor:pointer;touch-action:manipulation}
+input,select{font:inherit}
+#app{min-height:100%;display:flex;flex-direction:column;padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+header.bar{background:var(--navy);color:#fff;display:flex;align-items:center;gap:12px;padding:10px 16px;flex-wrap:wrap}
+header.bar h1{font-size:20px;margin:0;flex:1;min-width:120px}
+.score{font-size:30px;font-weight:800;letter-spacing:.5px;font-variant-numeric:tabular-nums}
+.score small{font-size:inherit;font-weight:600;opacity:.7;margin:0 6px}
+.chip{display:inline-block;padding:4px 10px;border-radius:999px;font-weight:700;font-size:14px}
+.chip.o{background:var(--lime);color:var(--ink)} .chip.d{background:#fff;color:var(--navy)}
+.btn{background:var(--card);border:2px solid var(--line);border-radius:12px;padding:10px 16px;font-weight:650;min-height:48px}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--navy);border-color:var(--navy);color:#fff}
+.btn.lime{background:var(--lime);border-color:var(--lime);color:var(--ink)}
+.btn.ghost{background:transparent;border-color:rgba(255,255,255,.5);color:#fff}
+.btn.danger{background:var(--red);border-color:var(--red);color:#fff}
+.btn:disabled{opacity:.4}
+main{flex:1;padding:16px;display:flex;flex-direction:column;gap:16px;max-width:1400px;width:100%;margin:0 auto}
+.card{background:var(--card);border-radius:16px;padding:16px;border:1px solid var(--line)}
+.card h2{margin:0 0 12px;font-size:18px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.muted{color:var(--muted);font-size:14px}
+.grid-players{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.pbtn{position:relative;background:var(--card);border:3px solid var(--line);border-radius:14px;min-height:72px;padding:8px 10px;text-align:left;font-weight:700;font-size:19px}
+.pbtn .g{position:absolute;top:8px;right:10px;font-size:12px;font-weight:800;padding:1px 7px;border-radius:6px;color:#fff}
+.pbtn .g.F{background:var(--f)} .pbtn .g.M{background:var(--m)}
+.pbtn .sub{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-top:4px}
+.pbtn.sel{border-color:var(--navy);background:#E3ECF5;box-shadow:inset 0 0 0 2px var(--navy)}
+.pbtn.pick{border-color:var(--lime);background:#F6FAD9;animation:pulse 1s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 4px rgba(192,215,37,.5)}}
+.live{display:grid;grid-template-columns:minmax(260px,1fr) 2fr;gap:16px}
+@media (max-width:900px){.live{grid-template-columns:1fr}}
+.oncourt{display:flex;flex-direction:column;gap:10px}
+.oncourt .pbtn{min-height:84px;font-size:24px}
+.actions{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;align-content:start}
+.act{border-radius:16px;min-height:104px;font-size:22px;font-weight:800;padding:10px;color:#fff;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px}
+.act small{font-size:13px;font-weight:600;opacity:.9}
+.act:active{transform:scale(.97)}
+.act.goal{background:#2E8540} .act.to{background:var(--red)} .act.to2{background:#9E2A31}
+.act.d{background:var(--navy)} .act.err{background:#3D6E99} .act.them{background:#5B6570}
+.act.cal{background:#7A5AA8}
+.prompt{background:var(--lime);color:var(--ink);border-radius:14px;padding:14px 16px;font-size:20px;font-weight:800;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.status{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:800;padding:14px 16px;border-radius:14px}
+.status.o{background:var(--lime);color:var(--ink)} .status.d{background:var(--navy);color:#fff}
+.ratio{display:flex;align-items:center;gap:14px;flex-wrap:wrap;border-radius:14px;padding:12px 16px;color:#fff}
+.ratio.F{background:var(--f)} .ratio.M{background:var(--m)}
+.ratio b{font-size:24px;letter-spacing:.3px}
+.ratio .rl{font-size:14px;font-weight:700;opacity:.85;text-transform:uppercase;letter-spacing:.5px}
+.ratio.compact{padding:8px 14px} .ratio.compact b{font-size:18px}
+.rstrip{display:flex;gap:5px;margin-left:auto;flex-wrap:wrap}
+.rs{display:flex;flex-direction:column;align-items:center;justify-content:center;width:38px;height:44px;border-radius:9px;font-weight:800;font-size:17px;border:2px solid rgba(255,255,255,.7);background:rgba(255,255,255,.18)}
+.rs small{font-size:10px;font-weight:600;opacity:.85}
+.rs.F{background:#F3D3E8;color:#7A1F5A;border-color:#F3D3E8} .rs.M{background:#D3E3F7;color:#123F77;border-color:#D3E3F7}
+.rs.past{opacity:.45} .rs.now{outline:3px solid #fff;outline-offset:2px;transform:scale(1.08)}
+.ratio .btn{border-color:rgba(255,255,255,.8);background:#fff;color:var(--ink)}
+.log{font-size:14px;max-height:180px;overflow:auto}
+.log div{padding:4px 0;border-bottom:1px solid var(--line)}
+.field-wrap{width:100%;max-width:min(1000px,calc((100vh - 440px) * 2.35));min-width:320px;margin:0 auto}
+svg.field{width:100%;height:auto;display:block;touch-action:none}
+svg.field.vert{width:auto;height:max(300px,calc(100vh - 380px));height:max(300px,calc(100dvh - 380px));max-width:100%;margin:0 auto}
+.field-wrap:has(svg.vert){max-width:none;min-width:0}
+table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{background:#EEF1F4;font-size:12px;text-transform:uppercase;letter-spacing:.3px;position:sticky;top:0}
+.tscroll{overflow:auto;max-width:100%}
+.tabs{display:flex;gap:8px}
+.tabs .btn.on{background:var(--lime);border-color:var(--lime);color:var(--ink)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.kpi{background:#EEF1F4;border-radius:12px;padding:10px 12px}
+.kpi b{display:block;font-size:26px;font-variant-numeric:tabular-nums}
+.kpi span{font-size:13px;color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 18px;border-radius:12px;font-weight:600;z-index:50;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw}
+.toast.show{opacity:1}
+.warn{background:#FFF4D6;border:1px solid #E8C860;border-radius:12px;padding:10px 14px;font-size:14px}
+.modal-bg{position:fixed;inset:0;background:rgba(19,30,41,.55);display:flex;align-items:center;justify-content:center;z-index:40;padding:16px}
+.modal{background:#fff;border-radius:18px;padding:20px;max-width:720px;width:100%;max-height:90vh;overflow:auto}
+.rinput{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;margin-bottom:8px}
+.rinput input{padding:10px;border:2px solid var(--line);border-radius:10px;width:100%}
+.seg{display:inline-flex;border:2px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{padding:10px 14px;background:#fff;font-weight:700;min-width:48px}
+.seg button.on{background:var(--navy);color:#fff}
+label.f{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:14px}
+label.f input{padding:12px;border:2px solid var(--line);border-radius:10px;font-size:18px}
+.gamerow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted);align-items:center}
+.dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+
+/* ---------- telefono / schermi stretti ---------- */
+@media (max-width:900px){
+  .live{grid-template-columns:1fr;gap:10px}
+  .oncourt{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .oncourt .pbtn{min-height:64px;font-size:18px;padding:8px}
+  .actions{grid-template-columns:repeat(2,1fr);gap:8px}
+}
+@media (max-width:600px){
+  main{padding:10px;gap:10px}
+  .card{padding:12px;border-radius:14px}
+  .card h2{font-size:16px;margin-bottom:8px}
+  header.bar{padding:8px 10px;gap:8px;position:sticky;top:env(safe-area-inset-top,0px);z-index:20}
+  header.bar h1{font-size:17px}
+  .gbar .gtitle{display:none}
+  .gbar .lbl{display:none}
+  .gbar .score{flex:1;font-size:19px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .gbar .score small{margin:0 3px}
+  .gbar .btn{min-height:40px;padding:6px 11px;font-size:15px}
+  .gbar .tabs{gap:4px}
+  .btn{min-height:44px;padding:8px 12px}
+  .ratio{padding:8px 12px;gap:8px}
+  .ratio b{font-size:17px}
+  .ratio.compact{padding:6px 10px} .ratio.compact b{font-size:15px}
+  .ratio .rl{font-size:12px}
+  .rstrip{gap:3px;margin-left:0}
+  .rs{width:27px;height:34px;font-size:14px;border-radius:7px}
+  .rs small{font-size:9px}
+  .ratio.compact .rs{width:22px;height:28px;font-size:12px}
+  .ratio.compact .rs small{display:none}
+  .status{font-size:15px;padding:10px 12px;gap:8px;flex-wrap:wrap}
+  .status .tocount{font-size:12px!important}
+  .prompt{font-size:16px;padding:10px 12px;flex-wrap:wrap}
+  .oncourt .pbtn{min-height:58px;font-size:16px;padding:6px 7px}
+  .pbtn .g{top:5px;right:6px;font-size:10px;padding:0 5px}
+  .pbtn .sub{font-size:10px;letter-spacing:-.1px}
+  .act{min-height:78px;font-size:17px;border-radius:14px;padding:8px}
+  .act small{font-size:11px}
+  .grid-players{grid-template-columns:repeat(3,1fr);gap:7px}
+  .pbtn{min-height:58px;font-size:16px;padding:7px 8px;border-width:2px}
+  .linebar{position:sticky;bottom:0;background:var(--card);padding:10px 0 calc(10px + env(safe-area-inset-bottom,0px));margin-bottom:-12px;border-top:1px solid var(--line);z-index:5}
+  .linebar .btn[data-a=startpt]{width:100%}
+  .score{font-size:22px}
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .kpi b{font-size:22px}
+  .modal{padding:14px}
+  .gbar .tn{display:none}
+  .gbar .score{text-align:center;font-size:24px}
+  .status .long{display:none}
+  .ratio.compact{flex-wrap:nowrap;justify-content:space-between}
+  .ratio.compact .rl{display:none}
+  .ratio.compact .rs:nth-child(n+8){display:none}
+  .grid-players.pullers{grid-template-columns:repeat(5,1fr);gap:5px}
+  .grid-players.pullers .pbtn{min-height:44px;font-size:14px;padding:5px;text-align:center}
+  .grid-players.pullers .pbtn .g{display:none}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+<input type="file" id="fileIn" accept=".json,application/json" style="display:none">
+<script>
+"use strict";
+/* ============================================================
+   BUBBA STATS — beach ultimate 5v5 mixed, offline, single file
+   Everything is derived from an append-only event list per game,
+   so "Annulla" just removes the last event.
+   ============================================================ */
+
+const STORE_KEY = 'bubbaStats.v1';
+const FIELD = {L:75, W:25, EZ:15};          // metres; receiving goal line at x=60
+const GOAL_X = FIELD.L - FIELD.EZ;
+const DEFAULT_ROSTER = [
+  ['Laura','F'],['Alma','F'],['Lara','F'],['Molly','F'],['AliG','F'],['Lisa','F'],
+  ['Poz','M'],['Tito','M'],['Davide','M'],['Jappo','M'],['Chube','M'],['Batta','M'],
+  ['Mark','M'],['Zama','M'],['Dipre','M']
+];
+const uid = () => Math.random().toString(36).slice(2,9);
+
+let DB = null, storageOK = true;
+function load(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(raw) DB = JSON.parse(raw);
+  }catch(e){ storageOK = false; }
+  if(!DB || !DB.roster) DB = {
+    teamName:'Bubba',
+    roster: DEFAULT_ROSTER.map(([name,g]) => ({id:uid(), name, g})),
+    games: [], currentGameId: null
+  };
+}
+function save(){
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(DB)); storageOK = true; }
+  catch(e){ storageOK = false; }
+}
+load();
+
+const UI = {view:'home', tab:'play', pending:null, pullPuller:null, lineSel:[], lineStartO:null, statsFilter:'all', statsGame:null, modal:null};
+const P = id => DB.roster.find(p => p.id === id) || (DB.removed || []).find(p => p.id === id) || {id, name:'?', g:'?'};
+const game = () => DB.games.find(g => g.id === DB.currentGameId);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------------- derivation ---------------- */
+const TO_US = {tt:'Lancio', td:'Presa', ts:'Stall out', tx:'Altro'};
+function derive(g){
+  const st = {phase:'line', score:{us:0, them:0}, points:[], cur:null, poss:null,
+              nextO: g.pullFirst === 'them'};  // they pull first => we start on O
+  for(const e of g.events){
+    const c = st.cur;
+    switch(e.k){
+      case 'start':
+        st.cur = {n: st.points.length + 1, o: e.o, line: e.line.slice(), played: new Set(e.line),
+                  pull: null, ev: [], result: null, toUs: 0, toThem: 0, gotDisc: e.o, t0: e.t, t1: null};
+        st.points.push(st.cur); st.phase = 'pull'; st.poss = null; break;
+      case 'pull':
+        c.pull = e; st.phase = 'play'; st.poss = c.o ? 'us' : 'them'; break;
+      case 'line':
+        c.line = e.line.slice(); e.line.forEach(id => c.played.add(id)); break;
+      case 'goal': case 'call':
+        st.score.us++; c.result = 'us'; if(e.k === 'call'){ c.toThem++; c.gotDisc = true; }
+        break;
+      case 'tg':
+        st.score.them++; c.result = 'them'; break;
+      case 'tt': case 'td': case 'ts': case 'tx':
+        c.toUs++; st.poss = 'them'; break;
+      case 'd': case 'err':
+        c.toThem++; st.poss = 'us'; c.gotDisc = true; break;
+    }
+    if(c && e.k !== 'start') c.ev.push(e);
+    if(c && c.result && e.k !== 'start' && c.t1 == null){
+      c.t1 = e.t; c.scoreAfter = {...st.score};
+      st.phase = 'line'; st.nextO = c.result === 'them'; st.cur = null; st.poss = null;
+    }
+  }
+  return st;
+}
+
+function emptyPS(){ return {pts:0, ptsO:0, ptsD:0, goals:0, ast:0, ds:0, call:0, tt:0, td:0, ts:0, pulls:0, pullOB:0, pullDist:0, pullDistN:0}; }
+function playerStats(games){
+  const map = {};
+  const get = id => map[id] || (map[id] = emptyPS());
+  for(const g of games){
+    const st = derive(g);
+    for(const pt of st.points){
+      for(const id of pt.played){ const s = get(id); s.pts++; pt.o ? s.ptsO++ : s.ptsD++; }
+      if(pt.pull && pt.pull.team === 'us' && pt.pull.p){
+        const s = get(pt.pull.p); s.pulls++;
+        if(pt.pull.x != null){
+          if(isOB(pt.pull)) s.pullOB++; else { s.pullDist += GOAL_X - pt.pull.x; s.pullDistN++; }
+        }
+      }
+      for(const e of pt.ev){
+        if(e.k === 'goal'){ get(e.s).goals++; if(e.a) get(e.a).ast++; }
+        if(e.k === 'call'){ const s = get(e.p); s.goals++; s.ds++; s.call++; }
+        if(e.k === 'd') get(e.p).ds++;
+        if(e.k === 'tt') get(e.p).tt++;
+        if(e.k === 'td') get(e.p).td++;
+        if(e.k === 'ts') get(e.p).ts++;
+      }
+    }
+  }
+  return map;
+}
+function teamStats(g){
+  const st = derive(g), t = {pts:0, oPts:0, holds:0, clean:0, dPts:0, breaks:0, breakChances:0, broken:0,
+    toUs:0, toThrow:0, toDrop:0, toStall:0, toOther:0, toThem:0, ds:0, errs:0,
+    pullsUs:0, pullsUsOB:0, pullsThem:0, pullsThemOB:0, durSum:0, durN:0};
+  for(const pt of st.points){
+    if(!pt.result) continue;
+    t.pts++;
+    if(pt.o){ t.oPts++; if(pt.result === 'us'){ t.holds++; if(pt.toUs === 0) t.clean++; } else t.broken++; }
+    else { t.dPts++; if(pt.gotDisc) t.breakChances++; if(pt.result === 'us') t.breaks++; }
+    if(pt.t1 && pt.t0){ t.durSum += (pt.t1 - pt.t0)/1000; t.durN++; }
+  }
+  for(const pt of st.points){
+    for(const e of pt.ev){
+      if(e.k === 'tt') t.toThrow++; if(e.k === 'td') t.toDrop++; if(e.k === 'ts') t.toStall++; if(e.k === 'tx') t.toOther++;
+      if(e.k === 'd' || e.k === 'call') t.ds++; if(e.k === 'err') t.errs++;
+    }
+    if(pt.pull && pt.pull.x != null){
+      if(pt.pull.team === 'us'){ t.pullsUs++; if(isOB(pt.pull)) t.pullsUsOB++; }
+      else { t.pullsThem++; if(isOB(pt.pull)) t.pullsThemOB++; }
+    }
+  }
+  t.toUs = t.toThrow + t.toDrop + t.toStall + t.toOther; t.toThem = t.ds + t.errs;
+  t.score = st.score;
+  return t;
+}
+const isOB = pl => pl.x < 0 || pl.x > FIELD.L || pl.y < 0 || pl.y > FIELD.W;
+function pullZone(pl){
+  if(pl.x == null) return '';
+  if(isOB(pl)) return 'Fuori';
+  const d = GOAL_X - pl.x;
+  if(d < 0) return 'In meta';
+  if(d <= 10) return '0–10 m dalla meta';
+  if(d <= 20) return '10–20 m dalla meta';
+  return 'Corto (>20 m)';
+}
+
+/* ---------------- actions ---------------- */
+function push(ev){
+  const g = game(); ev.t = Date.now(); g.events.push(ev); save(); render();
+}
+function undo(){
+  if(UI.pending){ UI.pending = null; render(); return; }
+  const g = game(); if(!g || !g.events.length) return;
+  const e = g.events.pop(); save();
+  toast('Annullato: ' + describe(e));
+  if(e.k === 'start'){ UI.lineSel = e.line.slice(); UI.lineStartO = e.o; }
+  render();
+}
+function describe(e){
+  const n = id => id ? P(id).name : '';
+  switch(e.k){
+    case 'start': return (e.o ? 'Inizio punto in attacco' : 'Inizio punto in difesa') + ' — ' + e.line.map(n).join(', ');
+    case 'pull': return e.x == null ? 'Pull non registrato' : `Pull ${e.team === 'us' ? 'nostro' + (e.p ? ' ('+n(e.p)+')' : '') : 'loro'}: ${pullZone(e)}`;
+    case 'goal': return `META ${n(e.s)}` + (e.a ? ` — assist ${n(e.a)}` : '');
+    case 'call': return `CALLAHAN ${n(e.p)}`;
+    case 'tt': return `Turnover lancio — ${n(e.p)}`;
+    case 'td': return `Turnover presa — ${n(e.p)}`;
+    case 'ts': return `Stall out — ${n(e.p)}`;
+    case 'tx': return `Turnover (altro)`;
+    case 'd':  return `DIFESA ${n(e.p)}`;
+    case 'err': return `Errore avversario`;
+    case 'tg': return `Meta avversaria`;
+    case 'line': return 'Cambio linea — ' + e.line.map(n).join(', ');
+  }
+  return e.k;
+}
+
+/* ---------------- rendering ---------------- */
+const $app = document.getElementById('app');
+function render(){
+  let h = '';
+  if(UI.view === 'home') h = viewHome();
+  else if(UI.view === 'roster') h = viewRoster();
+  else if(UI.view === 'new') h = viewNew();
+  else if(UI.view === 'game') h = viewGame();
+  else if(UI.view === 'stats') h = viewStatsPage();
+  if(UI.modal) h += UI.modal;
+  $app.innerHTML = h;
+  bindField();
+}
+function storageWarn(){
+  return storageOK ? '' : `<div class="warn">⚠︎ Il salvataggio automatico non funziona in questo browser. Esporta spesso il backup (JSON) o l'Excel per non perdere i dati.</div>`;
+}
+
+function viewHome(){
+  const games = DB.games.slice().reverse();
+  return `<header class="bar"><h1>🥏 ${esc(DB.teamName)} Stats</h1>
+    <button class="btn ghost" data-a="roster">Roster (${DB.roster.length})</button></header>
+  <main>${storageWarn()}
+    <div class="card"><div class="row" style="justify-content:space-between">
+      <h2 style="margin:0">Partite</h2>
+      <div class="row"><button class="btn lime" data-a="newgame">+ Nuova partita</button></div></div>
+      ${games.length ? games.map(g => { const s = derive(g).score; return `<div class="gamerow">
+        <div><b>vs ${esc(g.opp)}</b> <span class="muted">${esc(g.date)}${g.done ? ' · finita' : ''}</span><br>
+        <span class="score" style="font-size:22px">${s.us} – ${s.them}</span></div>
+        <div class="row">
+          <button class="btn primary" data-a="open" data-id="${g.id}">${g.done ? 'Riapri' : 'Continua'}</button>
+          <button class="btn" data-a="gstats" data-id="${g.id}">Statistiche</button>
+          <button class="btn" data-a="xlsx1" data-id="${g.id}">Excel</button>
+          <button class="btn" data-a="delgame" data-id="${g.id}">Elimina</button>
+        </div></div>`; }).join('') : `<p class="muted">Nessuna partita. Crea la prima con “Nuova partita”.</p>`}
+    </div>
+    <div class="card"><h2>Esporta</h2>
+      <div class="row">
+        <button class="btn primary" data-a="xlsxall" ${DB.games.length ? '' : 'disabled'}>Excel torneo (tutte le partite)</button>
+        <button class="btn" data-a="stats-all" ${DB.games.length ? '' : 'disabled'}>Statistiche torneo</button>
+        <button class="btn" data-a="backup">Backup (JSON)</button>
+        <button class="btn" data-a="restore">Ripristina backup</button>
+      </div>
+      <p class="muted">L'Excel contiene: riepilogo giocatori, squadra, punti, linee (O/D per giocatore), pull con coordinate, registro eventi. Il backup JSON serve per spostare i dati su un altro dispositivo.</p>
+    </div>
+  </main>`;
+}
+
+function viewRoster(){
+  return `<header class="bar"><h1>Roster</h1><button class="btn ghost" data-a="home">Fine</button></header>
+  <main><div class="card">
+    <label class="f" style="margin-bottom:14px">Nome squadra<input id="teamName" value="${esc(DB.teamName)}"></label>
+    ${DB.roster.map(p => `<div class="rinput">
+      <input data-rname="${p.id}" value="${esc(p.name)}">
+      <div class="seg"><button class="${p.g === 'F' ? 'on' : ''}" data-a="rg" data-id="${p.id}" data-g="F">F</button><button class="${p.g === 'M' ? 'on' : ''}" data-a="rg" data-id="${p.id}" data-g="M">M</button></div>
+      <button class="btn" data-a="rdel" data-id="${p.id}">✕</button></div>`).join('')}
+    <button class="btn lime" data-a="radd">+ Aggiungi giocatore</button>
+    <p class="muted">Il sesso serve per controllare il rapporto F/M della linea. I giocatori eliminati restano nelle statistiche delle partite già giocate.</p>
+  </div></main>`;
+}
+
+function viewNew(){
+  const today = new Date().toISOString().slice(0,10);
+  return `<header class="bar"><h1>Nuova partita</h1><button class="btn ghost" data-a="home">Annulla</button></header>
+  <main><div class="card" style="max-width:640px">
+    <label class="f">Avversario<input id="opp" placeholder="es. Heidess"></label><br>
+    <label class="f">Data / torneo<input id="gdate" value="${today}"></label><br>
+    <div class="f" style="font-weight:600;font-size:14px">Chi fa il primo pull?</div>
+    <div class="seg" style="margin-top:6px"><button class="on" data-a="pf" data-v="us">Noi (partiamo in difesa)</button><button data-a="pf" data-v="them">Loro (partiamo in attacco)</button></div>
+    <br><br><div class="f" style="font-weight:600;font-size:14px">Rapporto del primo punto (poi ABBA)</div>
+    <div class="seg" style="margin-top:6px"><button class="on" data-a="fr" data-v="F">3 donne + 2 uomini</button><button data-a="fr" data-v="M">3 uomini + 2 donne</button></div>
+    <br><br><button class="btn primary" data-a="create" style="width:100%;font-size:20px">Inizia partita</button>
+  </div></main>`;
+}
+
+function pbtn(id, cls, extra, sub){
+  const p = P(id);
+  return `<button class="pbtn ${cls||''}" data-p="${id}" ${extra||''}>${esc(p.name)}<span class="g ${p.g}">${p.g}</span>${sub ? `<span class="sub">${sub}</span>` : ''}</button>`;
+}
+
+function viewGame(){
+  const g = game(); const st = derive(g);
+  const lastPt = st.points[st.points.length - 1];
+  let statusChip = '';
+  if(st.phase === 'play') statusChip = st.poss === 'us' ? '<span class="chip o">ATTACCO</span>' : '<span class="chip d">DIFESA</span>';
+  const head = `<header class="bar gbar">
+    <button class="btn ghost" data-a="home">‹<span class="lbl"> Partite</span></button>
+    <h1 class="gtitle">vs ${esc(g.opp)} ${statusChip}</h1>
+    <div class="score"><span class="tn">${esc(DB.teamName)} </span>${st.score.us}<small>–</small>${st.score.them}<span class="tn"> ${esc(g.opp)}</span></div>
+    <div class="tabs"><button class="btn ghost ${UI.tab === 'play' ? 'on' : ''}" data-a="tab" data-v="play">Partita</button><button class="btn ghost ${UI.tab === 'stats' ? 'on' : ''}" data-a="tab" data-v="stats">Stats</button></div>
+    <button class="btn lime" data-a="undo" ${g.events.length || UI.pending ? '' : 'disabled'}>↶<span class="lbl"> Annulla</span></button>
+  </header>`;
+  if(UI.tab === 'stats') return head + `<main>${statsBlock([g])}</main>`;
+  let body = '';
+  if(st.phase === 'line') body = phaseLine(g, st, lastPt);
+  else if(st.phase === 'pull') body = phasePull(g, st);
+  else body = phasePlay(g, st);
+  const log = g.events.slice(-8).reverse().map(e => `<div>${esc(describe(e))}</div>`).join('');
+  return head + `<main>${storageWarn()}${body}
+    <div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Ultimi eventi</h2>
+    <div class="row">${st.phase === 'play' ? '<button class="btn" data-a="chgline">Cambio linea (infortunio)</button>' : ''}
+    <button class="btn" data-a="endgame">${g.done ? 'Partita finita ✓' : 'Termina partita'}</button></div></div>
+    <div class="log">${log || '<span class="muted">—</span>'}</div></div></main>`;
+}
+
+// WFDF mixed ratio rule A (ABBA): point 1 = A, then the majority gender alternates every two points
+function ratioFor(g, n){ const a = g.firstRatio || 'F', b = a === 'F' ? 'M' : 'F'; return Math.floor(n / 2) % 2 === 0 ? a : b; }
+const ratioLabel = x => x === 'F' ? '3 DONNE + 2 UOMINI' : '3 UOMINI + 2 DONNE';
+function ratioStrip(g, n){
+  const from = Math.max(1, n - 3), to = from + 9;
+  let h = '';
+  for(let i = from; i <= to; i++){
+    const x = ratioFor(g, i);
+    h += `<span class="rs ${x} ${i < n ? 'past' : ''} ${i === n ? 'now' : ''}"><small>${i}</small>${x === 'F' ? 'D' : 'U'}</span>`;
+  }
+  return h;
+}
+function ratioBanner(g, n, compact){
+  const x = ratioFor(g, n);
+  return `<div class="ratio ${x} ${compact ? 'compact' : ''}"><div><span class="rl">Punto ${n}</span> <b>${ratioLabel(x)}</b></div>
+    <div class="rstrip">${ratioStrip(g, n)}</div>
+    ${compact ? '' : `<button class="btn" data-a="flipratio" title="Inverti la sequenza se il primo punto era diverso">⇄ Inverti</button>`}</div>`;
+}
+function ratioText(ids){
+  const f = ids.filter(id => P(id).g === 'F').length, m = ids.length - f;
+  return {f, m, n: ids.length};
+}
+function phaseLine(g, st, lastPt){
+  if(UI.lineStartO == null) UI.lineStartO = st.nextO;
+  const ps = playerStats([g]);
+  const r = ratioText(UI.lineSel);
+  const ptsN = st.points.length + 1;
+  const need = ratioFor(g, ptsN);
+  const genderOK = need === 'F' ? r.f === 3 : r.m === 3;
+  const ok = r.n === 5 && genderOK;
+  const lastO = [...st.points].reverse().find(p => p.o), lastD = [...st.points].reverse().find(p => !p.o);
+  return `${ratioBanner(g, ptsN)}<div class="card">
+    <div class="row" style="justify-content:space-between">
+      <h2 style="margin:0">Punto ${ptsN} — scegli la linea</h2>
+      <div class="seg"><button class="${UI.lineStartO ? 'on' : ''}" data-a="lso" data-v="1">Attacco</button><button class="${!UI.lineStartO ? 'on' : ''}" data-a="lso" data-v="0">Difesa</button></div>
+    </div>
+    <p class="muted">${UI.lineStartO ? 'Loro fanno il pull, noi riceviamo.' : 'Facciamo noi il pull.'} Sotto ogni nome: punti giocati finora (O/D).</p>
+    <div class="grid-players">${DB.roster.map(p => {
+      const s = ps[p.id] || emptyPS();
+      return pbtn(p.id, UI.lineSel.includes(p.id) ? 'sel' : '', 'data-a="tl"', `${s.pts} punti · ${s.ptsO}O / ${s.ptsD}D`);
+    }).join('')}</div>
+    ${r.n && r.n !== 5 ? '<p class="muted">Attenzione: la linea non ha 5 giocatori.</p>' : ''}
+    ${r.n === 5 && !genderOK ? `<p class="muted" style="color:var(--red);font-weight:700">Attenzione: questo punto va giocato con ${ratioLabel(need).toLowerCase()}.</p>` : ''}
+    <div class="row linebar" style="margin-top:14px;justify-content:space-between">
+      <div class="row">
+        <span class="chip" style="background:${ok ? 'var(--lime)' : '#FFE1E1'}">${r.n}/5 · ${r.f}F ${r.m}M</span>
+        ${lastPt ? '<button class="btn" data-a="lprev">Linea precedente</button>' : ''}
+        ${lastO ? '<button class="btn" data-a="lastO">Ultima linea O</button>' : ''}
+        ${lastD ? '<button class="btn" data-a="lastD">Ultima linea D</button>' : ''}
+        <button class="btn" data-a="lclear">Svuota</button>
+      </div>
+      <button class="btn primary" data-a="startpt" style="font-size:20px;padding:12px 28px" ${r.n ? '' : 'disabled'}>Avvia punto ▸</button>
+    </div>
+  </div>`;
+}
+
+const isVert = () => window.matchMedia('(max-width: 700px) and (orientation: portrait)').matches;
+let lastVert = isVert();
+window.addEventListener('resize', () => { const v = isVert(); if(v !== lastVert){ lastVert = v; render(); } });
+function fieldSVG(dots, interactive){
+  // drawn in field metres (x along the 75 m length, puller at x=0); on a phone held upright the field is rotated to run bottom→top
+  const m = 6, L = FIELD.L, W = FIELD.W, v = isVert();
+  const tp = (x, y) => v ? [y, L - x] : [x, y];
+  const txt = (x, y, size, str) => { const [a, b] = tp(x, y); return `<text x="${a}" y="${b}" font-size="${size}" text-anchor="middle" fill="#5B6570" dominant-baseline="middle">${str}</text>`; };
+  let s = `<svg class="field ${v ? 'vert' : ''}" id="${interactive ? 'pullField' : ''}" viewBox="${-m} ${-m} ${(v ? W : L) + 2*m} ${(v ? L : W) + 2*m}" xmlns="http://www.w3.org/2000/svg">
+    <g id="${interactive ? 'pullG' : ''}" ${v ? `transform="translate(0 ${L}) rotate(-90)"` : ''}>
+    <rect x="${-m}" y="${-m}" width="${L + 2*m}" height="${W + 2*m}" fill="#E9DCC0"/>
+    <rect x="0" y="0" width="${L}" height="${W}" fill="#F7EFD9" stroke="#131E29" stroke-width=".35"/>
+    <rect x="0" y="0" width="${FIELD.EZ}" height="${W}" fill="#D8D2C0" stroke="#131E29" stroke-width=".35"/>
+    <rect x="${GOAL_X}" y="0" width="${FIELD.EZ}" height="${W}" fill="#D8D2C0" stroke="#131E29" stroke-width=".35"/>
+    ${[FIELD.EZ + 15, GOAL_X - 15].map(x => `<g stroke="#131E29" stroke-width=".35"><line x1="${x-.9}" y1="${W/2-.9}" x2="${x+.9}" y2="${W/2+.9}"/><line x1="${x-.9}" y1="${W/2+.9}" x2="${x+.9}" y2="${W/2-.9}"/></g>`).join('')}
+    ${[10,20].map(d => `<line x1="${GOAL_X-d}" y1="0" x2="${GOAL_X-d}" y2="${W}" stroke="#131E29" stroke-opacity=".15" stroke-width=".25" stroke-dasharray="1 1"/>`).join('')}`;
+  for(const d of dots) s += `<circle cx="${d.x}" cy="${d.y}" r="${d.r || 1}" fill="${d.c}" fill-opacity=".85" stroke="#fff" stroke-width=".25"><title>${esc(d.t || '')}</title></circle>`;
+  s += '</g>';
+  s += txt(FIELD.EZ/2, W/2, v ? 3 : 2.2, 'chi lancia') + txt(GOAL_X + FIELD.EZ/2, W/2, v ? 3 : 2.2, 'chi riceve');
+  s += v ? txt(GOAL_X - 10, W + 3, 2, '10m') + txt(GOAL_X - 20, W + 3, 2, '20m') + txt(-2.8, W/2, 1.8, '↑ pull ↑')
+         : txt(GOAL_X - 10, W + 2.8, 1.7, '10 m') + txt(GOAL_X - 20, W + 2.8, 1.7, '20 m') + txt(L/2, -2.6, 2, '→ direzione del pull →   (fuori dal rettangolo = pull fuori)');
+  return s + '</svg>';
+}
+
+function phasePull(g, st){
+  const pt = st.cur;
+  const weP = !pt.o;
+  if(weP && !UI.pullPuller){
+    // default: whoever in the line pulled most in this game
+    const cnt = {}; for(const p of st.points) if(p.pull && p.pull.team === 'us' && p.pull.p) cnt[p.pull.p] = (cnt[p.pull.p]||0) + 1;
+    const best = pt.line.slice().sort((a,b) => (cnt[b]||0) - (cnt[a]||0))[0];
+    UI.pullPuller = (cnt[best] ? best : null);
+  }
+  const prevDots = st.points.filter(p => p.pull && p.pull.x != null && p.pull.team === (weP ? 'us' : 'them'))
+    .map(p => ({x: p.pull.x, y: p.pull.y, c: '#B0B2B5', r: .8}));
+  return `<div class="status ${weP ? 'd' : 'o'}">Punto ${pt.n} · ${weP ? 'PULL NOSTRO' : 'PULL LORO'}</div>
+  ${weP ? `<div class="card"><h2>Chi lancia il pull?</h2><div class="grid-players pullers">${pt.line.map(id => pbtn(id, UI.pullPuller === id ? 'sel' : '', 'data-a="puller"')).join('')}</div></div>` : ''}
+  <div class="card"><h2>Tocca dove atterra il pull</h2>
+    <div class="field-wrap">${fieldSVG(prevDots, true)}</div>
+    <div class="row" style="margin-top:10px;justify-content:space-between">
+      <span class="muted">In grigio i pull precedenti ${weP ? 'nostri' : 'loro'} di questa partita.</span>
+      <button class="btn" data-a="skippull">Salta (non registrare il pull)</button></div>
+  </div>`;
+}
+
+function phasePlay(g, st){
+  const pt = st.cur, pend = UI.pending;
+  const ps = playerStats([g]);
+  let prompt = '';
+  let pickable = false, exclude = null;
+  if(pend){
+    const labels = {goal_s:'Chi ha SEGNATO?', goal_a:'Chi ha fatto l\'ASSIST?', tt:'Chi ha sbagliato il LANCIO?', td:'Chi ha sbagliato la PRESA?', ts:'Chi ha fatto STALL OUT?', d:'Chi ha fatto la DIFESA?', call:'Chi ha fatto il CALLAHAN?'};
+    prompt = `<div class="prompt"><span>${labels[pend.step]}</span><span class="row">${pend.step === 'goal_a' ? '<button class="btn" data-a="noassist">Nessun assist</button>' : ''}<button class="btn" data-a="cancel">Annulla</button></span></div>`;
+    pickable = true; if(pend.step === 'goal_a') exclude = pend.s;
+  }
+  const players = pt.line.map(id => {
+    const s = ps[id] || emptyPS();
+    const sub = `M ${s.goals} · A ${s.ast} · D ${s.ds} · TO ${s.tt + s.td + s.ts}`;
+    const can = pickable && id !== exclude;
+    return pbtn(id, can ? 'pick' : '', can ? 'data-a="pick"' : 'disabled', sub);
+  }).join('');
+  const off = st.poss === 'us';
+  const acts = pend ? '' : off ? `
+      <button class="act goal" data-a="goal">META<small>poi marcatore + assist</small></button>
+      <button class="act to" data-a="tt">TURNOVER LANCIO<small>lancio sbagliato / bloccato</small></button>
+      <button class="act to" data-a="td">TURNOVER PRESA<small>presa sbagliata</small></button>
+      <button class="act to2" data-a="ts">STALL OUT<small>fine conteggio</small></button>
+      <button class="act to2" data-a="tx">TURNOVER ALTRO<small>senza giocatore</small></button>`
+    : `
+      <button class="act d" data-a="d">DIFESA (D)<small>block / intercetto</small></button>
+      <button class="act err" data-a="err">ERRORE LORO<small>turnover senza nostra D</small></button>
+      <button class="act them" data-a="tg">META LORO</button>
+      <button class="act cal" data-a="call">CALLAHAN<small>intercetto in meta</small></button>`;
+  return `${ratioBanner(g, pt.n, true)}<div class="status ${off ? 'o' : 'd'}"><span class="long">Punto ${pt.n} (${pt.o ? 'partito in attacco' : 'partito in difesa'}) · </span>${off ? 'DISCO NOSTRO — ATTACCO' : 'DISCO LORO — DIFESA'}
+    <span class="tocount" style="margin-left:auto;font-size:15px;font-weight:600">TO nostri ${pt.toUs} · TO loro ${pt.toThem}</span></div>
+  ${prompt}
+  <div class="live"><div class="oncourt">${players}</div><div class="actions">${acts}</div></div>`;
+}
+
+/* ---------------- stats ---------------- */
+function statsBlock(games){
+  const ps = playerStats(games);
+  const ids = Object.keys(ps).sort((a,b) => ps[b].pts - ps[a].pts || P(a).name.localeCompare(P(b).name));
+  const rows = ids.map(id => { const s = ps[id]; const to = s.tt + s.td + s.ts;
+    return `<tr><td><b>${esc(P(id).name)}</b> <span class="muted">${P(id).g}</span></td><td>${s.pts}</td><td>${s.ptsO}</td><td>${s.ptsD}</td>
+      <td>${s.goals}</td><td>${s.ast}</td><td>${s.ds}</td><td>${s.tt}</td><td>${s.td}</td><td>${s.ts}</td><td>${to}</td>
+      <td><b>${s.goals + s.ast + s.ds - to}</b></td><td>${s.pulls ? s.pulls + (s.pullOB ? ` (${s.pullOB} fuori)` : '') : ''}</td></tr>`; }).join('');
+  const T = games.map(teamStats).reduce((a,t) => { for(const k in t) if(typeof t[k] === 'number') a[k] = (a[k]||0) + t[k]; return a; }, {});
+  const pct = (a,b) => b ? Math.round(100*a/b) + '%' : '–';
+  const kpi = (v, l) => `<div class="kpi"><b>${v}</b><span>${l}</span></div>`;
+  // pull map
+  const pullers = new Set(); const dots = [];
+  const f = UI.statsFilter;
+  for(const g of games) for(const pt of derive(g).points){
+    const pl = pt.pull; if(!pl || pl.x == null) continue;
+    if(pl.team === 'us' && pl.p) pullers.add(pl.p);
+    const show = f === 'all' || (f === 'us' && pl.team === 'us') || (f === 'them' && pl.team === 'them') || f === pl.p;
+    if(show) dots.push({x: pl.x, y: pl.y, c: pl.team === 'us' ? '#003057' : '#E07A1F', r: 1.1,
+      t: `${g.opp} p${pt.n} · ${pl.team === 'us' ? (pl.p ? P(pl.p).name : 'noi') : 'loro'} · ${pullZone(pl)}`});
+  }
+  const opts = [['all','Tutti'],['us','Nostri'],['them','Loro'], ...[...pullers].map(id => [id, P(id).name])];
+  return `<div class="card"><h2>Squadra</h2><div class="kpis">
+      ${kpi(`${T.holds||0}/${T.oPts||0}`, 'Hold (punti O vinti)')}
+      ${kpi(`${T.clean||0}`, 'Hold puliti (0 TO)')}
+      ${kpi(`${T.breaks||0}/${T.dPts||0}`, 'Break (punti D vinti)')}
+      ${kpi(`${T.breaks||0}/${T.breakChances||0}`, 'Break / occasioni (disco recuperato)')}
+      ${kpi(T.toUs||0, `Nostri TO · lancio ${T.toThrow||0} · presa ${T.toDrop||0} · stall out ${T.toStall||0}`)}
+      ${kpi(T.toThem||0, `TO loro · nostre D ${T.ds||0} · errori ${T.errs||0}`)}
+      ${kpi(`${(T.pullsUs||0) - (T.pullsUsOB||0)}/${T.pullsUs||0}`, 'Nostri pull in campo')}
+      ${kpi(T.durN ? Math.round(T.durSum / T.durN) + ' s' : '–', 'Durata media punto')}
+    </div></div>
+  <div class="card"><h2>Giocatori</h2><div class="tscroll"><table>
+    <thead><tr><th>Giocatore</th><th>Punti</th><th>O</th><th>D</th><th>Mete</th><th>Assist</th><th>Difese</th><th>TO lancio</th><th>TO presa</th><th>Stall out</th><th>TO tot</th><th>+/−</th><th>Pull</th></tr></thead>
+    <tbody>${rows || '<tr><td colspan="13" class="muted">Nessun dato</td></tr>'}</tbody></table></div>
+    <p class="muted">+/− = mete + assist + difese − turnover. O/D = punti iniziati in attacco/difesa.</p></div>
+  <div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Mappa pull</h2>
+    <div class="row">${opts.map(([v,l]) => `<button class="btn ${f === v ? 'lime' : ''}" data-a="sf" data-v="${v}">${esc(l)}</button>`).join('')}</div></div>
+    <div class="legend" style="margin:10px 0"><span><span class="dot" style="background:#003057"></span>Nostri</span><span><span class="dot" style="background:#E07A1F"></span>Loro</span><span>Sempre orientati: chi lancia a sinistra → chi riceve a destra.</span></div>
+    <div class="field-wrap">${fieldSVG(dots, false)}</div></div>`;
+}
+function viewStatsPage(){
+  const games = UI.statsGame ? DB.games.filter(g => g.id === UI.statsGame) : DB.games;
+  const title = UI.statsGame ? 'vs ' + esc(games[0].opp) : 'Torneo (' + games.length + ' partite)';
+  return `<header class="bar"><button class="btn ghost" data-a="home">‹ Partite</button><h1>Statistiche — ${title}</h1>
+    <button class="btn lime" data-a="${UI.statsGame ? 'xlsx1' : 'xlsxall'}" data-id="${UI.statsGame || ''}">Esporta Excel</button></header>
+    <main>${statsBlock(games)}</main>`;
+}
+
+/* ---------------- field tap ---------------- */
+function bindField(){
+  const svg = document.getElementById('pullField'); if(!svg) return;
+  svg.addEventListener('pointerup', ev => {
+    const g = game(), st = derive(g), weP = !st.cur.o;
+    if(weP && !UI.pullPuller){ toast('Prima scegli chi lancia il pull'); return; }
+    const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
+    const p = pt.matrixTransform(document.getElementById('pullG').getScreenCTM().inverse());
+    const x = Math.round(p.x * 10) / 10, y = Math.round(p.y * 10) / 10;
+    const e = {k:'pull', team: weP ? 'us' : 'them', p: weP ? UI.pullPuller : null, x, y};
+    UI.pullPuller = null; push(e); toast(describe(e));
+  });
+}
+
+/* ---------------- events ---------------- */
+document.addEventListener('click', ev => {
+  const b = ev.target.closest('[data-a]'); if(!b || b.disabled) return;
+  const a = b.dataset.a, id = b.dataset.id, v = b.dataset.v;
+  const g = game();
+  switch(a){
+    case 'home': UI.view = 'home'; UI.modal = null; break;
+    case 'roster': UI.view = 'roster'; break;
+    case 'newgame': UI.view = 'new'; UI.pf = 'us'; UI.fr = 'F'; break;
+    case 'fr': UI.fr = v; b.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); return;
+    case 'flipratio': g.firstRatio = ratioFor(g, 1) === 'F' ? 'M' : 'F'; save(); break;
+    case 'pf': UI.pf = v; b.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); return;
+    case 'create': {
+      const opp = document.getElementById('opp').value.trim() || 'Avversario';
+      const ng = {id: uid(), opp, date: document.getElementById('gdate').value.trim(), pullFirst: UI.pf || 'us', firstRatio: UI.fr || 'F', events: [], done: false};
+      DB.games.push(ng); DB.currentGameId = ng.id; save();
+      Object.assign(UI, {view:'game', tab:'play', lineSel:[], lineStartO:null, pending:null}); break;
+    }
+    case 'open': DB.currentGameId = id; save(); Object.assign(UI, {view:'game', tab:'play', pending:null, lineStartO:null});
+      { const gg = game(); if(gg.done){ gg.done = false; save(); } } break;
+    case 'gstats': UI.view = 'stats'; UI.statsGame = id; UI.statsFilter = 'all'; break;
+    case 'stats-all': UI.view = 'stats'; UI.statsGame = null; UI.statsFilter = 'all'; break;
+    case 'delgame': ask('Eliminare questa partita? Operazione irreversibile.', 'Elimina', () => { DB.games = DB.games.filter(x => x.id !== id); save(); }); return;
+    case 'xlsx1': exportXLSX(DB.games.filter(x => x.id === (id || DB.currentGameId))); return;
+    case 'xlsxall': exportXLSX(DB.games); return;
+    case 'backup': download(new Blob([JSON.stringify(DB, null, 1)], {type:'application/json'}), `bubba-stats-backup-${stamp()}.json`); return;
+    case 'restore': document.getElementById('fileIn').click(); return;
+    case 'rg': P(id).g = v; save(); break;
+    case 'rdel': ask(`Togliere ${esc(P(id).name)} dal roster?`, 'Togli', () => { DB.removed = DB.removed || []; DB.removed.push(P(id)); DB.roster = DB.roster.filter(p => p.id !== id); save(); }); return;
+    case 'radd': DB.roster.push({id: uid(), name: 'Nuovo', g: 'M'}); save(); break;
+    case 'tab': UI.tab = v; break;
+    case 'sf': UI.statsFilter = v; break;
+    case 'undo': undo(); return;
+    case 'lso': UI.lineStartO = v === '1'; break;
+    case 'tl': { const pid = b.dataset.p; UI.lineSel = UI.lineSel.includes(pid) ? UI.lineSel.filter(x => x !== pid) : [...UI.lineSel, pid];
+      if(UI.modalLine) { openLineModal(); return; } break; }
+    case 'lclear': UI.lineSel = []; break;
+    case 'lprev': case 'lastO': case 'lastD': {
+      const pts = derive(g).points.slice().reverse();
+      const pt = a === 'lprev' ? pts[0] : pts.find(p => p.o === (a === 'lastO'));
+      if(pt) UI.lineSel = pt.line.filter(id => DB.roster.some(r => r.id === id)); break; }
+    case 'startpt': push({k:'start', line: UI.lineSel.slice(), o: !!UI.lineStartO}); UI.lineSel = []; UI.lineStartO = null; UI.pullPuller = null; return;
+    case 'puller': UI.pullPuller = b.dataset.p; break;
+    case 'skippull': push({k:'pull', team: derive(g).cur.o ? 'them' : 'us', p: null, x: null, y: null}); return;
+    case 'goal': UI.pending = {step:'goal_s'}; break;
+    case 'tt': case 'td': case 'ts': case 'd': case 'call': UI.pending = {step: a}; break;
+    case 'tx': case 'err': case 'tg': { const e = {k: a}; push(e); toast(describe(e)); if(a === 'tg') UI.lineSel = []; return; }
+    case 'cancel': UI.pending = null; break;
+    case 'noassist': { const e = {k:'goal', s: UI.pending.s, a: null}; UI.pending = null; push(e); toast(describe(e)); return; }
+    case 'pick': {
+      const pid = b.dataset.p, pend = UI.pending;
+      if(pend.step === 'goal_s'){ UI.pending = {step:'goal_a', s: pid}; break; }
+      let e;
+      if(pend.step === 'goal_a') e = {k:'goal', s: pend.s, a: pid};
+      else e = {k: pend.step, p: pid};
+      UI.pending = null; push(e); toast(describe(e)); return;
+    }
+    case 'endgame': if(!g.done) ask('Terminare la partita? Potrai riaprirla dalla lista.', 'Termina', () => { g.done = true; save(); UI.view = 'home'; }); return;
+    case 'cfok': { const fn = UI.confirmFn; UI.modal = null; UI.confirmFn = null; if(fn) fn(); break; }
+    case 'cfno': UI.modal = null; UI.confirmFn = null; break;
+    case 'chgline': UI.lineSel = derive(g).cur.line.slice(); UI.modalLine = true; openLineModal(); return;
+    case 'lineok': if(UI.lineSel.length){ push({k:'line', line: UI.lineSel.slice()}); } UI.modal = null; UI.modalLine = false; UI.lineSel = []; render(); return;
+    case 'linecancel': UI.modal = null; UI.modalLine = false; UI.lineSel = []; break;
+  }
+  render();
+});
+function ask(msg, okLabel, fn){
+  UI.confirmFn = fn;
+  UI.modal = `<div class="modal-bg"><div class="modal" style="max-width:460px"><h2>${msg}</h2><div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" data-a="cfno">Annulla</button><button class="btn danger" data-a="cfok">${okLabel}</button></div></div></div>`;
+  render();
+}
+function openLineModal(){
+  const r = ratioText(UI.lineSel);
+  UI.modal = `<div class="modal-bg"><div class="modal"><h2>Cambio linea durante il punto</h2>
+    <p class="muted">Seleziona chi è in campo adesso. Chi entra viene contato come “punto giocato”.</p>
+    <div class="grid-players">${DB.roster.map(p => pbtn(p.id, UI.lineSel.includes(p.id) ? 'sel' : '', 'data-a="tl"')).join('')}</div>
+    <div class="row" style="margin-top:14px;justify-content:space-between"><span class="chip" style="background:var(--lime)">${r.n}/5 · ${r.f}F ${r.m}M</span>
+    <div class="row"><button class="btn" data-a="linecancel">Annulla</button><button class="btn primary" data-a="lineok">Conferma</button></div></div></div></div>`;
+  render();
+}
+document.addEventListener('change', ev => {
+  const t = ev.target;
+  if(t.dataset.rname){ P(t.dataset.rname).name = t.value.trim() || 'Senza nome'; save(); }
+  if(t.id === 'teamName'){ DB.teamName = t.value.trim() || 'Bubba'; save(); }
+});
+document.getElementById('fileIn').addEventListener('change', ev => {
+  const f = ev.target.files[0]; if(!f) return;
+  const rd = new FileReader();
+  rd.onload = () => { try{ const d = JSON.parse(rd.result); if(!d.roster || !d.games) throw 0;
+      ask(`Ripristinare il backup (${d.games.length} partite)? I dati attuali verranno sostituiti.`, 'Ripristina', () => { DB = d; save(); toast('Backup ripristinato'); }); }
+    catch(e){ toast('File non valido: serve un backup JSON di Bubba Stats'); } ev.target.value = ''; };
+  rd.readAsText(f);
+});
+let toastT;
+function toast(msg){ const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1800); }
+const stamp = () => new Date().toISOString().slice(0,16).replace(/[:T]/g,'-');
+// lookup that also finds players removed from the roster
+const PN = id => { const r = DB.roster.find(p => p.id === id) || (DB.removed || []).find(p => p.id === id); return r || {name:'?', g:''}; };
+
+/* ---------------- XLSX writer (no library, works offline) ---------------- */
+const CRC = (() => { const t = new Uint32Array(256); for(let n = 0; n < 256; n++){ let c = n; for(let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(b){ let c = 0xFFFFFFFF; for(let i = 0; i < b.length; i++) c = CRC[(c ^ b[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function zip(files){ // STORE-only zip
+  const enc = new TextEncoder(), parts = [], cd = []; let off = 0;
+  for(const [name, str] of files){
+    const nb = enc.encode(name), data = enc.encode(str), crc = crc32(data);
+    const h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(8, 0, true);
+    h.setUint16(10, 0, true); h.setUint16(12, 0x21, true); h.setUint32(14, crc, true);
+    h.setUint32(18, data.length, true); h.setUint32(22, data.length, true); h.setUint16(26, nb.length, true); h.setUint16(28, 0, true);
+    parts.push(new Uint8Array(h.buffer), nb, data);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true); c.setUint16(10, 0, true);
+    c.setUint16(12, 0, true); c.setUint16(14, 0x21, true); c.setUint32(16, crc, true); c.setUint32(20, data.length, true); c.setUint32(24, data.length, true);
+    c.setUint16(28, nb.length, true); c.setUint32(42, off, true);
+    cd.push(new Uint8Array(c.buffer), nb);
+    off += 30 + nb.length + data.length;
+  }
+  const cdSize = cd.reduce((s, b) => s + b.length, 0);
+  const e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true);
+  e.setUint32(12, cdSize, true); e.setUint32(16, off, true);
+  return new Blob([...parts, ...cd, new Uint8Array(e.buffer)], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+const xesc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+function colName(i){ let s = ''; i++; while(i){ const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; }
+function sheetXML(sh){
+  let x = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
+  x += '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>';
+  x += '<cols>' + sh.rows[0].map((h, i) => `<col min="${i+1}" max="${i+1}" width="${(sh.widths && sh.widths[i]) || Math.max(9, Math.min(40, String(h).length + 3))}" customWidth="1"/>`).join('') + '</cols><sheetData>';
+  sh.rows.forEach((r, ri) => {
+    x += `<row r="${ri+1}">`;
+    r.forEach((v, ci) => {
+      const ref = colName(ci) + (ri + 1), bold = ri === 0 || (sh.boldRows && sh.boldRows.includes(ri)) ? ' s="1"' : '';
+      if(v == null || v === '') { if(bold) x += `<c r="${ref}"${bold}/>`; return; }
+      if(typeof v === 'object' && v.f) x += `<c r="${ref}"${bold}><f>${xesc(v.f)}</f></c>`;
+      else if(typeof v === 'number' && isFinite(v)) x += `<c r="${ref}"${bold}><v>${v}</v></c>`;
+      else x += `<c r="${ref}" t="inlineStr"${bold}><is><t xml:space="preserve">${xesc(v)}</t></is></c>`;
+    });
+    x += '</row>';
+  });
+  x += '</sheetData>';
+  if(sh.rows.length > 1) x += `<autoFilter ref="A1:${colName(sh.rows[0].length - 1)}${sh.rows.length}"/>`;
+  return x + '</worksheet>';
+}
+function buildXLSX(sheets){
+  const files = [];
+  files.push(['[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+    sheets.map((s, i) => `<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('') + '</Types>']);
+  files.push(['_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>']);
+  files.push(['xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>' +
+    sheets.map((s, i) => `<sheet name="${xesc(s.name.slice(0,31))}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('') + '</sheets>' +
+    '<definedNames>' + sheets.map((s, i) => s.rows.length > 1 ? `<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">'${xesc(s.name.slice(0,31))}'!$A$1:$${colName(s.rows[0].length-1)}$${s.rows.length}</definedName>` : '').join('') + '</definedNames></workbook>']);
+  files.push(['xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    sheets.map((s, i) => `<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('') +
+    `<Relationship Id="rId${sheets.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`]);
+  files.push(['xl/styles.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF003057"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>']);
+  sheets.forEach((s, i) => files.push([`xl/worksheets/sheet${i+1}.xml`, sheetXML(s)]));
+  return zip(files);
+}
+
+function exportSheets(games){
+  const multi = games.length > 1;
+  const nm = id => id ? PN(id).name : '';
+  // 1. players
+  const ps = playerStats(games);
+  const ids = Object.keys(ps).sort((a,b) => ps[b].pts - ps[a].pts);
+  const pRows = [['Giocatore','Sesso','Punti giocati','Punti O','Punti D','Mete','Assist','Difese (D)','di cui Callahan','TO lancio','TO presa','Stall out','TO totali','+/−','Pull','Pull fuori','Distanza media pull dalla meta (m)']];
+  ids.forEach((id, i) => { const s = ps[id], r = i + 2;
+    pRows.push([nm(id), PN(id).g, s.pts, s.ptsO, s.ptsD, s.goals, s.ast, s.ds, s.call, s.tt, s.td, s.ts,
+      {f:`J${r}+K${r}+L${r}`}, {f:`F${r}+G${r}+H${r}-M${r}`}, s.pulls, s.pullOB, s.pullDistN ? Math.round(10 * s.pullDist / s.pullDistN) / 10 : '']); });
+  const last = ids.length + 1;
+  if(ids.length) pRows.push(['TOTALE', '', '', '', '', ...'FGHIJKLMNOP'.split('').map(c => ({f:`SUM(${c}2:${c}${last})`})), '']);
+  // 2. team per game
+  const tRows = [['Partita','Data','Punteggio noi','Punteggio loro','Punti O','Hold','Hold puliti (0 TO)','Break subiti','Punti D','Occasioni di break','Break fatti','TO nostri','TO lancio','TO presa','Stall out','TO altro','TO loro','Nostre D','Errori loro','Pull nostri','Pull nostri fuori','Pull loro','Pull loro fuori','Durata media punto (s)']];
+  for(const g of games){ const t = teamStats(g);
+    tRows.push([g.opp, g.date, t.score.us, t.score.them, t.oPts, t.holds, t.clean, t.broken, t.dPts, t.breakChances, t.breaks, t.toUs, t.toThrow, t.toDrop, t.toStall, t.toOther, t.toThem, t.ds, t.errs, t.pullsUs, t.pullsUsOB, t.pullsThem, t.pullsThemOB, t.durN ? Math.round(t.durSum / t.durN) : '']); }
+  // 3. points, 4. lines, 5. pulls, 6. events
+  const ptRows = [['Partita','Punto','Inizio','Esito','Tipo','Punteggio','F','M','Linea','TO nostri','TO loro','Durata (s)']];
+  const allIds = [...new Set(games.flatMap(g => derive(g).points.flatMap(p => [...p.played])))];
+  allIds.sort((a,b) => (PN(a).g + PN(a).name).localeCompare(PN(b).g + PN(b).name));
+  const lRows = [['Partita','Punto','Inizio','Esito', ...allIds.map(nm)]];
+  const plRows = [['Partita','Punto','Squadra','Lanciatore','x (m dalla linea di fondo di chi lancia)','y (m)','Fuori','Distanza dalla meta di chi riceve (m)','Zona']];
+  const eRows = [['Partita','Punto','Tempo (mm:ss)','Evento','Giocatore','Assist','Descrizione']];
+  const EV = {start:'Inizio punto', pull:'Pull', goal:'Meta', call:'Callahan', tt:'TO lancio', td:'TO presa', ts:'Stall out', tx:'TO altro', d:'Difesa', err:'Errore loro', tg:'Meta loro', line:'Cambio linea'};
+  for(const g of games){
+    const st = derive(g), t0 = g.events.length ? g.events[0].t : 0;
+    for(const pt of st.points){
+      const r = ratioText(pt.line);
+      ptRows.push([g.opp, pt.n, pt.o ? 'Attacco' : 'Difesa', pt.result === 'us' ? 'Meta nostra' : pt.result === 'them' ? 'Meta loro' : 'In corso',
+        pt.result ? (pt.o ? (pt.result === 'us' ? 'Hold' : 'Break subito') : (pt.result === 'us' ? 'Break' : 'Hold loro')) : '',
+        pt.scoreAfter ? `${pt.scoreAfter.us}-${pt.scoreAfter.them}` : '', r.f, r.m, [...pt.played].map(nm).join(', '), pt.toUs, pt.toThem,
+        pt.t1 ? Math.round((pt.t1 - pt.t0) / 1000) : '']);
+      lRows.push([g.opp, pt.n, pt.o ? 'O' : 'D', pt.result === 'us' ? 'Noi' : pt.result === 'them' ? 'Loro' : '', ...allIds.map(id => pt.played.has(id) ? (pt.o ? 'O' : 'D') : '')]);
+      const pl = pt.pull;
+      if(pl && pl.x != null) plRows.push([g.opp, pt.n, pl.team === 'us' ? 'Noi' : 'Loro', nm(pl.p), pl.x, pl.y, isOB(pl) ? 'Sì' : 'No', isOB(pl) ? '' : Math.round((GOAL_X - pl.x) * 10) / 10, pullZone(pl)]);
+    }
+    let n = 0;
+    for(const e of g.events){
+      if(e.k === 'start') n++;
+      const s = Math.round((e.t - t0) / 1000), tm = `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+      eRows.push([g.opp, n, tm, EV[e.k] || e.k, nm(e.s || e.p), nm(e.a), describe(e)]);
+    }
+  }
+  return [
+    {name:'Giocatori', rows:pRows, boldRows: ids.length ? [pRows.length - 1] : []},
+    {name:'Squadra', rows:tRows},
+    {name:'Punti', rows:ptRows, widths:[14,7,9,12,12,10,5,5,50,9,9,10]},
+    {name:'Linee', rows:lRows},
+    {name:'Pull', rows:plRows, widths:[14,7,9,12,14,8,7,14,20]},
+    {name:'Eventi', rows:eRows, widths:[14,7,10,14,12,12,50]}
+  ];
+}
+function exportXLSX(games){
+  if(!games.length) return;
+  const blob = buildXLSX(exportSheets(games));
+  const name = games.length === 1 ? `bubba-stats_vs_${games[0].opp.replace(/[^\w-]+/g,'_')}_${games[0].date}.xlsx` : `bubba-stats_torneo_${stamp()}.xlsx`;
+  download(blob, name);
+}
+async function download(blob, name){
+  // Published on claude.ai: the page may only save files through the downloads capability
+  if(window.claude && window.claude.use){
+    try{
+      const dl = await window.claude.use('downloads');
+      if(dl){ await dl.save({filename: name, data: blob}); toast('File esportato: ' + name); return; }
+    }catch(e){ if(e && e.code === 'declined') return; toast('Esportazione non riuscita (' + ((e && e.code) || 'errore') + ')'); return; }
+  }
+  // Standalone file: share sheet if available, otherwise a normal download
+  try{
+    const file = new File([blob], name, {type: blob.type});
+    if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], title:name}); return; }
+  }catch(e){ if(e && e.name === 'AbortError') return; }
+  const url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  toast('File esportato: ' + name);
+}
+
+// expose for testing
+window.__bubba = {DB: () => DB, exportSheets, buildXLSX, derive};
+// offline: service worker (only when served over http/https, e.g. GitHub Pages)
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+try{ navigator.storage && navigator.storage.persist && navigator.storage.persist(); }catch(e){}
+render();
+</script>
+</body>
+</html>
