@@ -24,7 +24,8 @@ Rispondi in italiano, in modo conciso.
     `download()` usa la share sheet (iOS) o un normale download.
   - Layout responsive: iPad e telefono (≤600px: giocatori 3+2, campo sempre orizzontale).
   - Campo orientato nella direzione di gioco: `attRight(g, n)`; le squadre cambiano lato a ogni punto,
-    `g.dir0` ('R'/'L') è la direzione del nostro attacco al punto 1, "⇄ Gira il campo" la inverte.
+    `g.dir0` ('R'/'L') è la direzione del nostro attacco al punto 1 (scelta alla creazione partita),
+    "⇄ Gira il campo" la inverte.
 - `sw.js`: service worker cache-first → funziona offline. **A ogni modifica dei file incrementa `CACHE`** (`bubba-stats-v4` → `v5`…)
   **e allinea `APP_VERSION` in `index.html`** (stesso numero + data), mostrata in cima alla home.
 - Logo CUS Brescia Ultimate: icone (`icon-192/512`, `apple-touch-icon`) e `logo-96.png` nell'header della home.

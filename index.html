@@ -181,7 +181,7 @@ label.f input{padding:12px;border:2px solid var(--line);border-radius:10px;font-
    so "Annulla" just removes the last event.
    ============================================================ */
 
-const APP_VERSION = 'v7 · 25/09/2026';  // keep in sync with CACHE in sw.js
+const APP_VERSION = 'v8 · 25/09/2026';  // keep in sync with CACHE in sw.js
 const STORE_KEY = 'bubbaStats.v1';
 const FIELD = {L:75, W:25, EZ:15};          // metres; receiving goal line at x=60
 const GOAL_X = FIELD.L - FIELD.EZ;
@@ -428,7 +428,10 @@ function viewNew(){
     <div class="seg" style="margin-top:6px"><button class="on" data-a="pf" data-v="us">Noi (partiamo in difesa)</button><button data-a="pf" data-v="them">Loro (partiamo in attacco)</button></div>
     <br><br><div class="f" style="font-weight:600;font-size:14px">Rapporto del primo punto (poi ABBA)</div>
     <div class="seg" style="margin-top:6px"><button class="on" data-a="fr" data-v="F">3 donne + 2 uomini</button><button data-a="fr" data-v="M">3 uomini + 2 donne</button></div>
-    <br><br><button class="btn primary" data-a="create" style="width:100%;font-size:20px">Inizia partita</button>
+    <br><br><div class="f" style="font-weight:600;font-size:14px">Al primo punto, guardando il campo da dove segni le statistiche, noi attacchiamo verso…</div>
+    <div class="seg" style="margin-top:6px"><button data-a="dir" data-v="L">← Sinistra</button><button class="on" data-a="dir" data-v="R">Destra →</button></div>
+    <div class="muted" style="font-size:13px;margin-top:4px">Poi il campo si gira da solo a ogni punto. Se sbagli, in partita c'è "⇄ Gira il campo".</div>
+    <br><button class="btn primary" data-a="create" style="width:100%;font-size:20px">Inizia partita</button>
   </div></main>`;
 }
 
@@ -687,13 +690,14 @@ document.addEventListener('click', ev => {
   switch(a){
     case 'home': UI.view = 'home'; UI.modal = null; break;
     case 'roster': UI.view = 'roster'; break;
-    case 'newgame': UI.view = 'new'; UI.pf = 'us'; UI.fr = 'F'; break;
+    case 'newgame': UI.view = 'new'; UI.pf = 'us'; UI.fr = 'F'; UI.dir = 'R'; break;
     case 'fr': UI.fr = v; b.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); return;
     case 'flipratio': g.firstRatio = ratioFor(g, 1) === 'F' ? 'M' : 'F'; save(); break;
+    case 'dir': UI.dir = v; b.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); return;
     case 'pf': UI.pf = v; b.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); return;
     case 'create': {
       const opp = document.getElementById('opp').value.trim() || 'Avversario';
-      const ng = {id: uid(), opp, date: document.getElementById('gdate').value.trim(), pullFirst: UI.pf || 'us', firstRatio: UI.fr || 'F', events: [], done: false};
+      const ng = {id: uid(), opp, date: document.getElementById('gdate').value.trim(), pullFirst: UI.pf || 'us', firstRatio: UI.fr || 'F', dir0: UI.dir || 'R', events: [], done: false};
       DB.games.push(ng); DB.currentGameId = ng.id; save();
       Object.assign(UI, {view:'game', tab:'play', lineSel:[], lineStartO:null, pending:null}); break;
     }
