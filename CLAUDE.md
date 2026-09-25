@@ -19,9 +19,10 @@ Rispondi in italiano, in modo conciso.
 - `manifest.webmanifest` + icone: installabile con "Aggiungi alla schermata Home".
 - Campo: 75x25 m, mete 15 m, brick a 15 m dalle linee di meta. Colori brand: navy #003057, lime #C0D725.
 
-## Obiettivo immediato
-Creare il repo GitHub `bubba-stats`, fare il push e attivare **GitHub Pages** (branch `main`, root).
-URL atteso: `https://<utente>.github.io/bubba-stats/`.
+## Hosting
+Repo GitHub **privato** `titoski12/bubba-stats` + **Cloudflare Pages** collegato al repo
+(nessun build command, output directory `/`): ogni push su `main` pubblica. URL: `https://bubba-stats.pages.dev/`.
+Non cambiare dominio a squadra avviata: il `localStorage` è legato al dominio (fare prima un backup).
 
 ## Idee aperte
 - "Importa e aggiungi" per unire backup JSON di più telefoni (oggi "Ripristina backup" sostituisce tutto).
