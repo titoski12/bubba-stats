@@ -766,39 +766,192 @@ function zip(files){ // STORE-only zip
 }
 const xesc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
 function colName(i){ let s = ''; i++; while(i){ const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; }
-function sheetXML(sh){
+function xStyles(){ // style registry -> styles.xml; st = {b, sz, color, fill, br:'lrtb', al, rot}
+  const fonts = [], fills = ['<fill><patternFill patternType="none"/></fill>', '<fill><patternFill patternType="gray125"/></fill>'],
+        borders = [], xfs = [], ids = {};
+  const idx = (arr, x) => { let i = arr.indexOf(x); if(i < 0){ i = arr.length; arr.push(x); } return i; };
+  function id(st){
+    st = st || {}; const k = JSON.stringify(st); if(k in ids) return ids[k];
+    const fo = idx(fonts, `<font>${st.b ? '<b/>' : ''}<sz val="${st.sz || 11}"/>${st.color ? `<color rgb="FF${st.color}"/>` : ''}<name val="Calibri"/></font>`);
+    const fi = st.fill ? idx(fills, `<fill><patternFill patternType="solid"><fgColor rgb="FF${st.fill}"/><bgColor indexed="64"/></patternFill></fill>`) : 0;
+    const bo = idx(borders, '<border>' + ['left','right','top','bottom'].map(n => st.br && st.br.includes(n[0]) ? `<${n} style="thin"><color rgb="FF000000"/></${n}>` : `<${n}/>`).join('') + '<diagonal/></border>');
+    const al = st.al || st.rot ? `<alignment${st.al ? ` horizontal="${st.al}"` : ''}${st.rot ? ` textRotation="${st.rot}" vertical="bottom"` : ''}/>` : '';
+    xfs.push(`<xf numFmtId="0" fontId="${fo}" fillId="${fi}" borderId="${bo}" xfId="0" applyFont="1" applyFill="1" applyBorder="1"${al ? ' applyAlignment="1">' + al + '</xf>' : '/>'}`);
+    return ids[k] = xfs.length - 1;
+  }
+  id(null);
+  const xml = () => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    `<fonts count="${fonts.length}">${fonts.join('')}</fonts><fills count="${fills.length}">${fills.join('')}</fills><borders count="${borders.length}">${borders.join('')}</borders>` +
+    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+    `<cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  return {id, xml};
+}
+const HDR = {b:1, color:'FFFFFF', fill:'003057'};
+function cellXML(ref, v, si){
+  const s = si ? ` s="${si}"` : '';
+  if(v == null || v === '') return si ? `<c r="${ref}"${s}/>` : '';
+  if(typeof v === 'object' && v.f){
+    const cv = v.v == null || v.v === '' ? '<v></v>' : typeof v.v === 'number' ? `<v>${v.v}</v>` : `<v>${xesc(v.v)}</v>`;
+    return `<c r="${ref}"${s}${typeof v.v === 'number' ? '' : ' t="str"'}><f>${xesc(v.f)}</f>${cv}</c>`;
+  }
+  if(typeof v === 'number' && isFinite(v)) return `<c r="${ref}"${s}><v>${v}</v></c>`;
+  return `<c r="${ref}" t="inlineStr"${s}><is><t xml:space="preserve">${xesc(v)}</t></is></c>`;
+}
+function sheetXML(sh, S){
+  if(sh.cells) return gridXML(sh, S);
   let x = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
   x += '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>';
   x += '<cols>' + sh.rows[0].map((h, i) => `<col min="${i+1}" max="${i+1}" width="${(sh.widths && sh.widths[i]) || Math.max(9, Math.min(40, String(h).length + 3))}" customWidth="1"/>`).join('') + '</cols><sheetData>';
+  const hs = S.id(HDR);
   sh.rows.forEach((r, ri) => {
-    x += `<row r="${ri+1}">`;
-    r.forEach((v, ci) => {
-      const ref = colName(ci) + (ri + 1), bold = ri === 0 || (sh.boldRows && sh.boldRows.includes(ri)) ? ' s="1"' : '';
-      if(v == null || v === '') { if(bold) x += `<c r="${ref}"${bold}/>`; return; }
-      if(typeof v === 'object' && v.f) x += `<c r="${ref}"${bold}><f>${xesc(v.f)}</f></c>`;
-      else if(typeof v === 'number' && isFinite(v)) x += `<c r="${ref}"${bold}><v>${v}</v></c>`;
-      else x += `<c r="${ref}" t="inlineStr"${bold}><is><t xml:space="preserve">${xesc(v)}</t></is></c>`;
-    });
-    x += '</row>';
+    const bold = ri === 0 || (sh.boldRows && sh.boldRows.includes(ri)) ? hs : 0;
+    x += `<row r="${ri+1}">` + r.map((v, ci) => cellXML(colName(ci) + (ri + 1), v, bold)).join('') + '</row>';
   });
   x += '</sheetData>';
   if(sh.rows.length > 1) x += `<autoFilter ref="A1:${colName(sh.rows[0].length - 1)}${sh.rows.length}"/>`;
   return x + '</worksheet>';
 }
+function gridXML(sh, S){ // free layout: sh.cells[row][col] = {v, s}, row 1-based, col 0-based
+  let x = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/>';
+  const cols = Object.keys(sh.cols || {}).map(Number).sort((a, b) => a - b);
+  if(cols.length) x += '<cols>' + cols.map(c => `<col min="${c+1}" max="${c+1}" width="${sh.cols[c]}" customWidth="1"/>`).join('') + '</cols>';
+  x += '<sheetData>';
+  const rows = [...new Set([...Object.keys(sh.cells), ...Object.keys(sh.heights || {})])].map(Number).sort((a, b) => a - b);
+  for(const r of rows){
+    const h = sh.heights && sh.heights[r], row = sh.cells[r] || {};
+    x += `<row r="${r}"${h ? ` ht="${h}" customHeight="1"` : ''}>` +
+      Object.keys(row).map(Number).sort((a, b) => a - b).map(c => cellXML(colName(c) + r, row[c].v, S.id(row[c].s))).join('') + '</row>';
+  }
+  return x + '</sheetData></worksheet>';
+}
 function buildXLSX(sheets){
-  const files = [];
+  const files = [], S = xStyles();
   files.push(['[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
     sheets.map((s, i) => `<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('') + '</Types>']);
   files.push(['_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>']);
   files.push(['xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>' +
     sheets.map((s, i) => `<sheet name="${xesc(s.name.slice(0,31))}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('') + '</sheets>' +
-    '<definedNames>' + sheets.map((s, i) => s.rows.length > 1 ? `<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">'${xesc(s.name.slice(0,31))}'!$A$1:$${colName(s.rows[0].length-1)}$${s.rows.length}</definedName>` : '').join('') + '</definedNames></workbook>']);
+    '<definedNames>' + sheets.map((s, i) => s.rows && s.rows.length > 1 ? `<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">'${xesc(s.name.slice(0,31))}'!$A$1:$${colName(s.rows[0].length-1)}$${s.rows.length}</definedName>` : '').join('') + '</definedNames></workbook>']);
   files.push(['xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
     sheets.map((s, i) => `<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('') +
     `<Relationship Id="rId${sheets.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`]);
-  files.push(['xl/styles.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF003057"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>']);
-  sheets.forEach((s, i) => files.push([`xl/worksheets/sheet${i+1}.xml`, sheetXML(s)]));
+  sheets.forEach((s, i) => files.push([`xl/worksheets/sheet${i+1}.xml`, sheetXML(s, S)]));
+  files.push(['xl/styles.xml', S.xml()]);
   return zip(files);
+}
+
+/* "vs <avversario>" sheet: same layout as the paper/Google scouting sheet */
+function scoutSheet(g, name){
+  const st = derive(g), cells = {}, cols = {}, nm = id => id ? PN(id).name : '';
+  const set = (r, c, v, s) => { if((v == null || v === '') && !s) return; (cells[r] || (cells[r] = {}))[c] = {v, s}; };
+  const opp = g.opp || 'Loro', oppI = (opp.trim()[0] || 'L').toUpperCase();
+  const RED = {fill:'EA9999', color:'990000', b:1}, BLUE = {fill:'9FC5E8', color:'0000FF', b:1}, HEAD = {fill:'6D9EEB', color:'FFFFFF', b:1}, NOTE = {sz:9, color:'999999'};
+  const order = [...DB.roster, ...(DB.removed || [])].map(p => p.id);
+  const ids = [...new Set(st.points.flatMap(p => [...p.played]))]
+    .sort((a, b) => (PN(a).g === 'F' ? 0 : 1) - (PN(b).g === 'F' ? 0 : 1) || order.indexOf(a) - order.indexOf(b));
+  const PC = 7, R0 = 10, last = R0 + st.points.length;              // player columns from H, points from row 10
+  const BA = PC + ids.length + 1, BB = BA + 8, SM = BB + 7;         // block "Pull Bubba", block "Pull loro", summary
+
+  // left: X/D grid per point
+  set(2, 1, `Bubba vs ${opp}${g.date ? ' · ' + g.date : ''} · ${st.score.us}-${st.score.them}`, {b:1, sz:14});
+  set(6, 6, 'X', RED); set(7, 6, 'D', BLUE); set(8, 6, 'TOT', {al:'right'});
+  set(8, 2, 'D', BLUE); set(8, 3, 'X', RED);
+  set(9, 2, opp, {b:1, rot:90}); set(9, 3, 'Bubba', {b:1, rot:90}); set(9, 6, 'Roster', {...HEAD, rot:90});
+  ids.forEach((id, i) => {
+    const c = PC + i, L = colName(c), rng = `${L}${R0}:${L}${Math.max(R0, last - 1)}`;
+    const nx = st.points.filter(p => p.o && p.played.has(id)).length, nd = st.points.filter(p => !p.o && p.played.has(id)).length;
+    set(9, c, nm(id), {rot:90, br:'r'});
+    set(6, c, {f:`IF(COUNTIF(${rng},"X")=0,"",COUNTIF(${rng},"X"))`, v: nx || ''}, {br:'r', al:'center'});
+    set(7, c, {f:`IF(COUNTIF(${rng},"D")=0,"",COUNTIF(${rng},"D"))`, v: nd || ''}, {br:'r', al:'center'});
+    set(8, c, {f:`IF(SUM(${L}6:${L}7)=0,"",SUM(${L}6:${L}7))`, v: (nx + nd) || ''}, {br:'r', al:'center'});
+  });
+  const startScore = i => i === 0 ? {us:0, them:0} : st.points[i-1].scoreAfter || {us:0, them:0};
+  const scoreCells = (r, i, sc) => {   // score only when it changes; B = break (red = break subito)
+    const pv = i > 0 ? startScore(i - 1) : null, pp = st.points[i - 1];
+    if(!pv || sc.them !== pv.them) set(r, 2, sc.them, {al:'right'});
+    if(!pv || sc.us !== pv.us) set(r, 3, sc.us, {al:'right'});
+    if(pp && !pp.o && pp.result === 'us') set(r, 4, 'B', {b:1, color:'003057'});
+    if(pp && pp.o && pp.result === 'them') set(r, 4, 'B', {b:1, color:'CC0000'});
+  };
+  st.points.forEach((pt, i) => {
+    const r = R0 + i, band = i % 2 ? {fill:'F3F3F3'} : {}, x = ratioFor(g, pt.n) === 'F' ? 'W' : 'M';
+    set(r, 1, x, x === 'W' ? {b:1, color:'674EA7', fill:'D9D2E9', al:'center'} : {b:1, color:'1155CC', fill:'C9DAF8', al:'center'});
+    scoreCells(r, i, startScore(i));
+    ids.forEach((id, j) => set(r, PC + j, pt.played.has(id) ? (pt.o ? 'X' : 'D') : '', {...band, br:'r', al:'center', b:1, color: pt.o ? '990000' : '0000FF'}));
+  });
+  const lp = st.points[st.points.length - 1];
+  if(lp && lp.scoreAfter) scoreCells(last, st.points.length, lp.scoreAfter);
+
+  // right: possessions, split by who pulls
+  const pulls = new Map();
+  for(const pt of st.points) if(pt.pull && pt.pull.team === 'us' && pt.pull.p){
+    const a = pulls.get(pt.pull.p) || []; a.push((nm(pt.pull.p)[0] || 'P').toUpperCase() + (a.length + 1)); pulls.set(pt.pull.p, a);
+  }
+  const HR = Math.max(17, 12 + pulls.size);
+  for(const [blk, who] of [[BA, 'Bubba'], [BB, opp]]){
+    set(10, blk + 1, 'Pull', {b:1, al:'right'}); set(10, blk + 2, who, {b:1});
+    set(HR, blk, oppI); set(HR, blk + 1, 'B');
+    ['azione', 'sec', 'cod', 'giocatore', 'note'].forEach((h, k) => set(HR, blk + 2 + k, h, NOTE));
+  }
+  [...pulls].forEach(([id, cs], i) => { set(11 + i, BA + 2, nm(id)); set(11 + i, BA + 3, cs.join(' ')); });
+
+  const cnt = {M:0, A:0, T:0, D:0}, codes = {}, durs = {us:[], them:[]};
+  const T = {toO:0, toD:0, tt:0, td:0, ts:0, tx:0, ds:0, clean:0, dirty:0, chances:0, breaks:0, broken:0};
+  const code = (k, id) => { const c = k + (++cnt[k]); if(id) (codes[id] || (codes[id] = [])).push(c); return c; };
+  const TON = {tt:'lancio', td:'ricezione', ts:'stall', tx:'altro'};
+  const cur = {[BA]: HR + 1, [BB]: HR + 1};
+  st.points.forEach((pt, i) => {
+    const out = [];
+    let side = pt.o ? 'us' : 'them', t = pt.pull ? pt.pull.t : pt.t0;
+    const end = (e, row) => { const s = t == null ? '' : Math.max(0, Math.round((e.t - t) / 1000)); if(s !== '') durs[side].push(s);
+      out.push({lab: side === 'us' ? 'O nd' : 'D nd', sec: s, ...row}); t = e.t; };
+    for(const e of pt.ev){
+      switch(e.k){
+        case 'tt': case 'td': case 'ts': case 'tx':
+          end(e, {code: code('T', e.p), p: e.p, note: TON[e.k]}); T[e.k]++; pt.o ? T.toO++ : T.toD++; side = 'them'; break;
+        case 'd': end(e, {code: code('D', e.p), p: e.p}); T.ds++; side = 'us'; if(!pt.o) T.chances++; break;
+        case 'err': end(e, {note:'errore loro'}); side = 'us'; if(!pt.o) T.chances++; break;
+        case 'goal':
+          if(e.a){ end(e, {code: code('A', e.a), p: e.a}); out.push({code: code('M', e.s), p: e.s}); }
+          else end(e, {code: code('M', e.s), p: e.s});
+          break;
+        case 'call': end(e, {code: code('D', e.p), p: e.p, note:'Callahan'}); out.push({code: code('M', e.p), p: e.p}); T.ds++; if(!pt.o) T.chances++; break;
+        case 'tg': end(e, {}); break;
+      }
+    }
+    if(pt.result){
+      if(pt.o){ if(pt.toUs) T.dirty++; else if(pt.result === 'us') T.clean++; if(pt.result === 'them') T.broken++; }
+      else if(pt.result === 'us') T.breaks++;
+    }
+    const blk = pt.o ? BB : BA, r = cur[blk], sc = startScore(i);
+    if(!out.length) out.push({});
+    set(r, blk, sc.them); set(r, blk + 1, sc.us);
+    out.forEach((o, j) => { set(r + j, blk + 2, o.lab); set(r + j, blk + 3, o.sec); set(r + j, blk + 4, o.code); set(r + j, blk + 5, nm(o.p)); set(r + j, blk + 6, o.note, o.note ? {sz:10} : null); });
+    cur[blk] += out.length;
+  });
+
+  // summary: player codes, turnover, times
+  set(16, SM + 1, 'dischi', {al:'right'}); set(16, SM + 2, 'Roster', HEAD);
+  ids.forEach((id, i) => { set(17 + i, SM + 2, nm(id)); set(17 + i, SM + 3, (codes[id] || []).join(' - ')); });
+  let r = 17 + ids.length + 1;
+  set(r++, SM + 2, 'Turnover', HEAD);
+  [[T.toO, 'partendo in offence'], [T.toD, 'partendo in defence'], ['', 'davanti alla meta'], [T.td, 'presa'], [T.tt, 'lanci'],
+   ...(T.ts ? [[T.ts, 'stall out']] : []), ...(T.tx ? [[T.tx, 'altro']] : []),
+   [T.ds, 'difese'], [T.clean, 'attacchi puliti'], [T.dirty, 'attacchi con turnover'], [T.chances, 'occasioni di break'],
+   [T.breaks, 'break fatti'], [T.broken, 'break contro']].forEach(([v, l]) => { set(r, SM + 1, v); set(r++, SM + 2, l); });
+  r++;
+  set(r++, SM + 2, 'Tempo', HEAD);
+  const mm = (a, f) => a.length ? Math[f](...a) : '';
+  [[mm(durs.us, 'max'), 'durata max offence'], [mm(durs.us, 'min'), 'durata min offence'],
+   [mm(durs.them, 'max'), 'durata max defence'], [mm(durs.them, 'min'), 'durata min defence']]
+    .forEach(([v, l]) => { set(r, SM, 'sec', {al:'right'}); set(r, SM + 1, v); set(r++, SM + 2, l); });
+
+  Object.assign(cols, {0:2.75, 1:3.2, 2:3.5, 3:3.5, 4:3, 5:1.5, 6:5});
+  ids.forEach((_, i) => cols[PC + i] = 3.3);
+  cols[BA - 1] = 2.75;
+  for(const b of [BA, BB]) Object.assign(cols, {[b]:3, [b+1]:3, [b+2]:8, [b+3]:5.13, [b+4]:4.5, [b+5]:12.63, [b+6]:11});
+  Object.assign(cols, {[BB - 1]:2.75, [SM]:4, [SM+1]:5, [SM+2]:20, [SM+3]:30});
+  return {name, cells, cols, heights: {9: 84}};
 }
 
 function exportSheets(games){
@@ -844,7 +997,14 @@ function exportSheets(games){
       eRows.push([g.opp, n, tm, EV[e.k] || e.k, nm(e.s || e.p), nm(e.a), describe(e)]);
     }
   }
+  const used = new Set();
+  const scout = games.map(g => {
+    const base = ('vs ' + (g.opp || 'Loro')).replace(/[\\\/?*\[\]:]/g, '-').slice(0, 28);
+    let n = base, k = 2; while(used.has(n)) n = `${base} ${k++}`;
+    used.add(n); return scoutSheet(g, n);
+  });
   return [
+    ...scout,
     {name:'Giocatori', rows:pRows, boldRows: ids.length ? [pRows.length - 1] : []},
     {name:'Squadra', rows:tRows},
     {name:'Punti', rows:ptRows, widths:[14,7,9,12,12,10,5,5,50,9,9,10]},
