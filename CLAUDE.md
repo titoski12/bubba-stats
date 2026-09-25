@@ -20,8 +20,8 @@ Rispondi in italiano, in modo conciso.
 - Campo: 75x25 m, mete 15 m, brick a 15 m dalle linee di meta. Colori brand: navy #003057, lime #C0D725.
 
 ## Hosting
-Repo GitHub **privato** `titoski12/bubba-stats` + **Cloudflare Pages** collegato al repo
-(nessun build command, output directory `/`): ogni push su `main` pubblica. URL: `https://bubba-stats.pages.dev/`.
+Repo GitHub pubblico `titoski12/bubba-stats` + **GitHub Pages** (branch `main`, root): ogni push su `main` pubblica.
+URL: `https://titoski12.github.io/bubba-stats/`.
 Non cambiare dominio a squadra avviata: il `localStorage` è legato al dominio (fare prima un backup).
 
 ## Idee aperte
