@@ -10,7 +10,10 @@ Rispondi in italiano, in modo conciso.
     Tutto (punteggio, possesso, statistiche) è derivato dagli eventi in `derive()`; "Annulla" = pop dell'ultimo evento.
   - Eventi: `start` (linea, O/D), `pull` (team, lanciatore, x/y in metri, x=0 fondo di chi lancia, meta ricevente da x=60),
     `goal` (s=marcatore, a=assist), `call` (Callahan), `tt` TO lancio, `td` TO presa, `ts` stall out, `tx` TO altro,
-    `d` difesa, `err` errore loro, `tg` meta loro, `line` cambio linea.
+    `d` difesa, `err` errore loro, `tg` meta loro, `line` cambio linea,
+    `dset` schema difensivo del possesso avversario (`DSETS`: Veltroni/Zona/Uomo; nel foglio "vs" va nella colonna "azione").
+  - Roster di default in `DEFAULT_ROSTER`; se cambia, incrementa `ROSTER_VER`: `migrateRoster()` allinea i roster salvati
+    (mantiene gli id, rinomina via `ROSTER_RENAME`, sposta chi non c'è più in `DB.removed` così le statistiche restano).
   - Regola rapporto ABBA: `ratioFor(g, n)` con `g.firstRatio` ('F' o 'M') scelto alla creazione partita.
   - Export Excel con writer .xlsx interno (zip STORE + XML, stili via `xStyles()`): per ogni partita un foglio
     "vs <avversario>" (`scoutSheet()`, stesso layout del foglio di scouting cartaceo/Google: griglia X/D per punto,

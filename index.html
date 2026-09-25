@@ -102,6 +102,8 @@ th{background:#EEF1F4;font-size:12px;text-transform:uppercase;letter-spacing:.3p
 .seg{display:inline-flex;border:2px solid var(--line);border-radius:10px;overflow:hidden}
 .seg button{padding:10px 14px;background:#fff;font-weight:700;min-width:48px}
 .seg button.on{background:var(--navy);color:#fff}
+.dsets{grid-column:1/-1;display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px}
+.dsets .seg{flex:1;display:flex} .dsets .seg button{flex:1;padding:14px 6px;font-size:17px}
 label.f{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:14px}
 label.f input{padding:12px;border:2px solid var(--line);border-radius:10px;font-size:18px}
 .gamerow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
@@ -114,6 +116,7 @@ label.f input{padding:12px;border:2px solid var(--line);border-radius:10px;font-
   .oncourt{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
   .oncourt .pbtn{min-height:64px;font-size:18px;padding:8px}
   .actions{grid-template-columns:repeat(2,1fr);gap:8px}
+  .dsets{flex-direction:column;align-items:stretch;gap:6px;font-size:14px} .dsets .seg button{padding:12px 4px;font-size:16px}
 }
 @media (max-width:600px){
   main{padding:10px;gap:10px}
@@ -181,10 +184,11 @@ const STORE_KEY = 'bubbaStats.v1';
 const FIELD = {L:75, W:25, EZ:15};          // metres; receiving goal line at x=60
 const GOAL_X = FIELD.L - FIELD.EZ;
 const DEFAULT_ROSTER = [
-  ['Laura','F'],['Alma','F'],['Lara','F'],['Molly','F'],['AliG','F'],['Lisa','F'],
-  ['Poz','M'],['Tito','M'],['Davide','M'],['Jappo','M'],['Chube','M'],['Batta','M'],
-  ['Mark','M'],['Zama','M'],['Dipre','M']
+  ['Poz','M'],['Tito','M'],['Jappo','M'],['Dave','M'],['Chube','M'],['Marc','M'],['Batta','M'],['Simo','M'],
+  ['Lara','F'],['Laura','F'],['Alma','F'],['AliN','F'],['Molly','F'],['AliG','F']
 ];
+const ROSTER_VER = 2, ROSTER_RENAME = {Davide:'Dave', Mark:'Marc'};
+const DSETS = ['Veltroni', 'Zona', 'Uomo'];  // defensive sets
 const uid = () => Math.random().toString(36).slice(2,9);
 
 let DB = null, storageOK = true;
@@ -196,8 +200,18 @@ function load(){
   if(!DB || !DB.roster) DB = {
     teamName:'Bubba',
     roster: DEFAULT_ROSTER.map(([name,g]) => ({id:uid(), name, g})),
-    games: [], currentGameId: null
+    games: [], currentGameId: null, rosterVer: ROSTER_VER
   };
+  if((DB.rosterVer || 1) < ROSTER_VER) migrateRoster();
+}
+function migrateRoster(){ // align an existing roster to DEFAULT_ROSTER, keeping ids (and stats) of known players
+  DB.removed = DB.removed || [];
+  const byName = {};
+  for(const p of DB.roster){ p.name = ROSTER_RENAME[p.name] || p.name; byName[p.name] = p; }
+  DB.roster.filter(p => !DEFAULT_ROSTER.some(([n]) => n === p.name)).forEach(p => DB.removed.push(p));
+  DB.roster = DEFAULT_ROSTER.map(([name, g]) => byName[name] || {id: uid(), name, g});
+  DB.rosterVer = ROSTER_VER;
+  save();
 }
 function save(){
   try{ localStorage.setItem(STORE_KEY, JSON.stringify(DB)); storageOK = true; }
@@ -213,7 +227,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':
 /* ---------------- derivation ---------------- */
 const TO_US = {tt:'Lancio', td:'Presa', ts:'Stall out', tx:'Altro'};
 function derive(g){
-  const st = {phase:'line', score:{us:0, them:0}, points:[], cur:null, poss:null,
+  const st = {phase:'line', score:{us:0, them:0}, points:[], cur:null, poss:null, dset:null,
               nextO: g.pullFirst === 'them'};  // they pull first => we start on O
   for(const e of g.events){
     const c = st.cur;
@@ -221,7 +235,7 @@ function derive(g){
       case 'start':
         st.cur = {n: st.points.length + 1, o: e.o, line: e.line.slice(), played: new Set(e.line),
                   pull: null, ev: [], result: null, toUs: 0, toThem: 0, gotDisc: e.o, t0: e.t, t1: null};
-        st.points.push(st.cur); st.phase = 'pull'; st.poss = null; break;
+        st.points.push(st.cur); st.phase = 'pull'; st.poss = null; st.dset = null; break;
       case 'pull':
         c.pull = e; st.phase = 'play'; st.poss = c.o ? 'us' : 'them'; break;
       case 'line':
@@ -232,9 +246,11 @@ function derive(g){
       case 'tg':
         st.score.them++; c.result = 'them'; break;
       case 'tt': case 'td': case 'ts': case 'tx':
-        c.toUs++; st.poss = 'them'; break;
+        c.toUs++; st.poss = 'them'; st.dset = null; break;
       case 'd': case 'err':
-        c.toThem++; st.poss = 'us'; c.gotDisc = true; break;
+        c.toThem++; st.poss = 'us'; c.gotDisc = true; st.dset = null; break;
+      case 'dset':
+        st.dset = e.v; break;
     }
     if(c && e.k !== 'start') c.ev.push(e);
     if(c && c.result && e.k !== 'start' && c.t1 == null){
@@ -334,6 +350,7 @@ function describe(e){
     case 'err': return `Errore avversario`;
     case 'tg': return `Meta avversaria`;
     case 'line': return 'Cambio linea — ' + e.line.map(n).join(', ');
+    case 'dset': return 'Difesa: ' + e.v;
   }
   return e.k;
 }
@@ -570,7 +587,8 @@ function phasePlay(g, st){
       <button class="act d" data-a="d">DIFESA (D)<small>block / intercetto</small></button>
       <button class="act err" data-a="err">ERRORE LORO<small>turnover senza nostra D</small></button>
       <button class="act them" data-a="tg">META LORO</button>
-      <button class="act cal" data-a="call">CALLAHAN<small>intercetto in meta</small></button>`;
+      <button class="act cal" data-a="call">CALLAHAN<small>intercetto in meta</small></button>
+      <div class="dsets"><span>Difesa</span><div class="seg">${DSETS.map(v => `<button class="${st.dset === v ? 'on' : ''}" data-a="dset" data-v="${v}">${v}</button>`).join('')}</div></div>`;
   return `${ratioBanner(g, pt.n, true)}<div class="status ${off ? 'o' : 'd'}"><span class="long">Punto ${pt.n} (${pt.o ? 'partito in attacco' : 'partito in difesa'}) · </span>${off ? 'DISCO NOSTRO — ATTACCO' : 'DISCO LORO — DIFESA'}
     <span class="tocount" style="margin-left:auto;font-size:15px;font-weight:600">TO nostri ${pt.toUs} · TO loro ${pt.toThem}</span></div>
   ${prompt}
@@ -688,6 +706,7 @@ document.addEventListener('click', ev => {
     case 'tt': case 'td': case 'ts': case 'd': case 'call': UI.pending = {step: a}; break;
     case 'tx': case 'err': case 'tg': { const e = {k: a}; push(e); toast(describe(e)); if(a === 'tg') UI.lineSel = []; return; }
     case 'cancel': UI.pending = null; break;
+    case 'dset': if(derive(g).dset !== b.dataset.v) push({k:'dset', v: b.dataset.v}); return;
     case 'noassist': { const e = {k:'goal', s: UI.pending.s, a: null}; UI.pending = null; push(e); toast(describe(e)); return; }
     case 'pick': {
       const pid = b.dataset.p, pend = UI.pending;
@@ -902,9 +921,9 @@ function scoutSheet(g, name){
   const cur = {[BA]: HR + 1, [BB]: HR + 1};
   st.points.forEach((pt, i) => {
     const out = [];
-    let side = pt.o ? 'us' : 'them', t = pt.pull ? pt.pull.t : pt.t0;
+    let side = pt.o ? 'us' : 'them', t = pt.pull ? pt.pull.t : pt.t0, dset = null;
     const end = (e, row) => { const s = t == null ? '' : Math.max(0, Math.round((e.t - t) / 1000)); if(s !== '') durs[side].push(s);
-      out.push({lab: side === 'us' ? 'O nd' : 'D nd', sec: s, ...row}); t = e.t; };
+      out.push({lab: side === 'us' ? 'O nd' : dset || 'D nd', sec: s, ...row}); t = e.t; dset = null; };
     for(const e of pt.ev){
       switch(e.k){
         case 'tt': case 'td': case 'ts': case 'tx':
@@ -917,6 +936,7 @@ function scoutSheet(g, name){
           break;
         case 'call': end(e, {code: code('D', e.p), p: e.p, note:'Callahan'}); out.push({code: code('M', e.p), p: e.p}); T.ds++; if(!pt.o) T.chances++; break;
         case 'tg': end(e, {}); break;
+        case 'dset': dset = e.v; break;
       }
     }
     if(pt.result){
@@ -977,7 +997,7 @@ function exportSheets(games){
   const lRows = [['Partita','Punto','Inizio','Esito', ...allIds.map(nm)]];
   const plRows = [['Partita','Punto','Squadra','Lanciatore','x (m dalla linea di fondo di chi lancia)','y (m)','Fuori','Distanza dalla meta di chi riceve (m)','Zona']];
   const eRows = [['Partita','Punto','Tempo (mm:ss)','Evento','Giocatore','Assist','Descrizione']];
-  const EV = {start:'Inizio punto', pull:'Pull', goal:'Meta', call:'Callahan', tt:'TO lancio', td:'TO presa', ts:'Stall out', tx:'TO altro', d:'Difesa', err:'Errore loro', tg:'Meta loro', line:'Cambio linea'};
+  const EV = {start:'Inizio punto', pull:'Pull', goal:'Meta', call:'Callahan', tt:'TO lancio', td:'TO presa', ts:'Stall out', tx:'TO altro', d:'Difesa', err:'Errore loro', tg:'Meta loro', line:'Cambio linea', dset:'Schema difesa'};
   for(const g of games){
     const st = derive(g), t0 = g.events.length ? g.events[0].t : 0;
     for(const pt of st.points){
