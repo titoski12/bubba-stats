@@ -20,7 +20,8 @@ Rispondi in italiano, in modo conciso.
     possessi divisi per chi fa il pull con codici M/A/T/D, riepilogo), poi Giocatori, Squadra, Punti, Linee, Pull, Eventi.
     `download()` usa la share sheet (iOS) o un normale download.
   - Layout responsive: iPad e telefono (≤600px: giocatori 3+2, campo pull verticale in portrait).
-- `sw.js`: service worker cache-first → funziona offline. **A ogni modifica dei file incrementa `CACHE`** (`bubba-stats-v1` → `v2`…).
+- `sw.js`: service worker cache-first → funziona offline. **A ogni modifica dei file incrementa `CACHE`** (`bubba-stats-v4` → `v5`…)
+  **e allinea `APP_VERSION` in `index.html`** (stesso numero + data), mostrata in cima alla home.
 - `manifest.webmanifest` + icone: installabile con "Aggiungi alla schermata Home".
 - Campo: 75x25 m, mete 15 m, brick a 15 m dalle linee di meta. Colori brand: navy #003057, lime #C0D725.
 

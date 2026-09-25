@@ -1,6 +1,6 @@
 // Bubba Stats — service worker: the app works offline after the first visit.
 // When you publish a new version, bump CACHE so phones pick it up.
-const CACHE = 'bubba-stats-v3';
+const CACHE = 'bubba-stats-v4';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {

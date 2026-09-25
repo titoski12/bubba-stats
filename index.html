@@ -26,6 +26,7 @@ input,select{font:inherit}
 #app{min-height:100%;display:flex;flex-direction:column;padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
 header.bar{background:var(--navy);color:#fff;display:flex;align-items:center;gap:12px;padding:10px 16px;flex-wrap:wrap}
 header.bar h1{font-size:20px;margin:0;flex:1;min-width:120px}
+header.bar .ver{font-size:12px;font-weight:600;color:var(--lime);white-space:nowrap}
 .score{font-size:30px;font-weight:800;letter-spacing:.5px;font-variant-numeric:tabular-nums}
 .score small{font-size:inherit;font-weight:600;opacity:.7;margin:0 6px}
 .chip{display:inline-block;padding:4px 10px;border-radius:999px;font-weight:700;font-size:14px}
@@ -180,6 +181,7 @@ label.f input{padding:12px;border:2px solid var(--line);border-radius:10px;font-
    so "Annulla" just removes the last event.
    ============================================================ */
 
+const APP_VERSION = 'v4 · 25/09/2026';  // keep in sync with CACHE in sw.js
 const STORE_KEY = 'bubbaStats.v1';
 const FIELD = {L:75, W:25, EZ:15};          // metres; receiving goal line at x=60
 const GOAL_X = FIELD.L - FIELD.EZ;
@@ -374,7 +376,7 @@ function storageWarn(){
 
 function viewHome(){
   const games = DB.games.slice().reverse();
-  return `<header class="bar"><h1>🥏 ${esc(DB.teamName)} Stats</h1>
+  return `<header class="bar"><h1>🥏 ${esc(DB.teamName)} Stats <span class="ver">${APP_VERSION}</span></h1>
     <button class="btn ghost" data-a="roster">Roster (${DB.roster.length})</button></header>
   <main>${storageWarn()}
     <div class="card"><div class="row" style="justify-content:space-between">
