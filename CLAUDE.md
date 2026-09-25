@@ -11,14 +11,16 @@ Rispondi in italiano, in modo conciso.
   - Eventi: `start` (linea, O/D), `pull` (team, lanciatore, x/y in metri, x=0 fondo di chi lancia, meta ricevente da x=60),
     `goal` (s=marcatore, a=assist), `call` (Callahan), `tt` TO lancio, `td` TO presa, `ts` stall out, `tx` TO altro,
     `d` difesa, `err` errore loro, `tg` meta loro, `line` cambio linea,
+    `d`/`call`/`tt`/`td`/`ts`/`tx` possono avere x/y (`LOC_EVENTS`): x = metri dalla nostra linea di fondo, attacchiamo verso x=75
+    (meta da x=60); dopo il giocatore l'app chiede "Dove?" (tocco sul campo o Salta).
     `dset` schema difensivo del possesso avversario (`DSETS`: Veltroni/Zona/Uomo; nel foglio "vs" va nella colonna "azione").
   - Roster di default in `DEFAULT_ROSTER`; se cambia, incrementa `ROSTER_VER`: `migrateRoster()` allinea i roster salvati
     (mantiene gli id, rinomina via `ROSTER_RENAME`, sposta chi non c'è più in `DB.removed` così le statistiche restano).
   - Regola rapporto ABBA: `ratioFor(g, n)` con `g.firstRatio` ('F' o 'M') scelto alla creazione partita.
   - Export Excel con writer .xlsx interno (zip STORE + XML, stili via `xStyles()`): per ogni partita un foglio
     "vs <avversario>" (`scoutSheet()`, stesso layout del foglio di scouting cartaceo/Google: griglia X/D per punto,
-    possessi divisi per chi fa il pull con codici M/A/T/D, riepilogo; sopra ogni blocco un PNG del campo con i pull,
-    disegnato su canvas da `pullFieldPNG()` e inserito come drawing), poi Giocatori, Squadra, Punti, Linee, Pull, Eventi.
+    possessi divisi per chi fa il pull con codici M/A/T/D, riepilogo; sopra ogni blocco un PNG del campo con pull, D e turnover,
+    disegnato su canvas da `fieldPNG()` e inserito come drawing), poi Giocatori, Squadra, Punti, Linee, Pull, Eventi.
     `download()` usa la share sheet (iOS) o un normale download.
   - Layout responsive: iPad e telefono (≤600px: giocatori 3+2, campo pull verticale in portrait).
 - `sw.js`: service worker cache-first → funziona offline. **A ogni modifica dei file incrementa `CACHE`** (`bubba-stats-v4` → `v5`…)

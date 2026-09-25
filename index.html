@@ -181,7 +181,7 @@ label.f input{padding:12px;border:2px solid var(--line);border-radius:10px;font-
    so "Annulla" just removes the last event.
    ============================================================ */
 
-const APP_VERSION = 'v5 · 25/09/2026';  // keep in sync with CACHE in sw.js
+const APP_VERSION = 'v6 · 25/09/2026';  // keep in sync with CACHE in sw.js
 const STORE_KEY = 'bubbaStats.v1';
 const FIELD = {L:75, W:25, EZ:15};          // metres; receiving goal line at x=60
 const GOAL_X = FIELD.L - FIELD.EZ;
@@ -191,6 +191,7 @@ const DEFAULT_ROSTER = [
 ];
 const ROSTER_VER = 2, ROSTER_RENAME = {Davide:'Dave', Mark:'Marc'};
 const DSETS = ['Veltroni', 'Zona', 'Uomo'];  // defensive sets
+const LOC_EVENTS = ['d', 'call', 'tt', 'td', 'ts', 'tx'];  // events that get a field location (x,y like fieldSVG play mode)
 const uid = () => Math.random().toString(36).slice(2,9);
 
 let DB = null, storageOK = true;
@@ -520,13 +521,14 @@ function phaseLine(g, st, lastPt){
 const isVert = () => window.matchMedia('(max-width: 700px) and (orientation: portrait)').matches;
 let lastVert = isVert();
 window.addEventListener('resize', () => { const v = isVert(); if(v !== lastVert){ lastVert = v; render(); } });
-function fieldSVG(dots, interactive){
+function fieldSVG(dots, interactive, play){
   // drawn in field metres (x along the 75 m length, puller at x=0); on a phone held upright the field is rotated to run bottom→top
-  const m = 6, L = FIELD.L, W = FIELD.W, v = isVert();
+  // play=true: D/turnover location, x=0 = back line of the end zone we defend, we attack towards x=75
+  const m = 6, L = FIELD.L, W = FIELD.W, v = isVert(), fid = play ? 'evField' : 'pullField', gid = play ? 'evG' : 'pullG';
   const tp = (x, y) => v ? [y, L - x] : [x, y];
   const txt = (x, y, size, str) => { const [a, b] = tp(x, y); return `<text x="${a}" y="${b}" font-size="${size}" text-anchor="middle" fill="#5B6570" dominant-baseline="middle">${str}</text>`; };
-  let s = `<svg class="field ${v ? 'vert' : ''}" id="${interactive ? 'pullField' : ''}" viewBox="${-m} ${-m} ${(v ? W : L) + 2*m} ${(v ? L : W) + 2*m}" xmlns="http://www.w3.org/2000/svg">
-    <g id="${interactive ? 'pullG' : ''}" ${v ? `transform="translate(0 ${L}) rotate(-90)"` : ''}>
+  let s = `<svg class="field ${v ? 'vert' : ''}" id="${interactive ? fid : ''}" viewBox="${-m} ${-m} ${(v ? W : L) + 2*m} ${(v ? L : W) + 2*m}" xmlns="http://www.w3.org/2000/svg">
+    <g id="${interactive ? gid : ''}" ${v ? `transform="translate(0 ${L}) rotate(-90)"` : ''}>
     <rect x="${-m}" y="${-m}" width="${L + 2*m}" height="${W + 2*m}" fill="#E9DCC0"/>
     <rect x="0" y="0" width="${L}" height="${W}" fill="#F7EFD9" stroke="#131E29" stroke-width=".35"/>
     <rect x="0" y="0" width="${FIELD.EZ}" height="${W}" fill="#D8D2C0" stroke="#131E29" stroke-width=".35"/>
@@ -535,6 +537,8 @@ function fieldSVG(dots, interactive){
     ${[10,20].map(d => `<line x1="${GOAL_X-d}" y1="0" x2="${GOAL_X-d}" y2="${W}" stroke="#131E29" stroke-opacity=".15" stroke-width=".25" stroke-dasharray="1 1"/>`).join('')}`;
   for(const d of dots) s += `<circle cx="${d.x}" cy="${d.y}" r="${d.r || 1}" fill="${d.c}" fill-opacity=".85" stroke="#fff" stroke-width=".25"><title>${esc(d.t || '')}</title></circle>`;
   s += '</g>';
+  if(play) return s + txt(FIELD.EZ/2, W/2, v ? 3 : 2.2, 'difendiamo') + txt(GOAL_X + FIELD.EZ/2, W/2, v ? 3 : 2.2, 'attacchiamo') +
+    (v ? txt(-2.8, W/2, 1.8, '↑ attacco ↑') : txt(L/2, -2.6, 2, '→ direzione del nostro attacco →')) + '</svg>';
   s += txt(FIELD.EZ/2, W/2, v ? 3 : 2.2, 'chi lancia') + txt(GOAL_X + FIELD.EZ/2, W/2, v ? 3 : 2.2, 'chi riceve');
   s += v ? txt(GOAL_X - 10, W + 3, 2, '10m') + txt(GOAL_X - 20, W + 3, 2, '20m') + txt(-2.8, W/2, 1.8, '↑ pull ↑')
          : txt(GOAL_X - 10, W + 2.8, 1.7, '10 m') + txt(GOAL_X - 20, W + 2.8, 1.7, '20 m') + txt(L/2, -2.6, 2, '→ direzione del pull →   (fuori dal rettangolo = pull fuori)');
@@ -567,6 +571,15 @@ function phasePlay(g, st){
   const ps = playerStats([g]);
   let prompt = '';
   let pickable = false, exclude = null;
+  if(pend && pend.step === 'where'){
+    const prev = [];
+    for(const p of st.points) for(const e of p.ev) if(LOC_EVENTS.includes(e.k) && e.x != null)
+      prev.push({x: e.x, y: e.y, c: e.k === 'd' || e.k === 'call' ? '#3FA34D' : '#C0392B', r: .7, t: describe(e)});
+    return `${ratioBanner(g, pt.n, true)}<div class="prompt"><span>DOVE? ${esc(describe(pend.e))}</span>
+      <span class="row"><button class="btn" data-a="noloc">Salta</button><button class="btn" data-a="cancel">Annulla</button></span></div>
+      <div class="card"><div class="field-wrap">${fieldSVG(prev, true, true)}</div>
+      <div class="muted" style="margin-top:8px">Tocca il punto del campo. Verdi = nostre D, rossi = nostri turnover già registrati.</div></div>`;
+  }
   if(pend){
     const labels = {goal_s:'Chi ha SEGNATO?', goal_a:'Chi ha fatto l\'ASSIST?', tt:'Chi ha sbagliato il LANCIO?', td:'Chi ha sbagliato la PRESA?', ts:'Chi ha fatto STALL OUT?', d:'Chi ha fatto la DIFESA?', call:'Chi ha fatto il CALLAHAN?'};
     prompt = `<div class="prompt"><span>${labels[pend.step]}</span><span class="row">${pend.step === 'goal_a' ? '<button class="btn" data-a="noassist">Nessun assist</button>' : ''}<button class="btn" data-a="cancel">Annulla</button></span></div>`;
@@ -648,6 +661,14 @@ function viewStatsPage(){
 
 /* ---------------- field tap ---------------- */
 function bindField(){
+  const ev = document.getElementById('evField');
+  if(ev) ev.addEventListener('pointerup', e => {
+    const pend = UI.pending; if(!pend || pend.step !== 'where') return;
+    const pt = ev.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+    const p = pt.matrixTransform(document.getElementById('evG').getScreenCTM().inverse());
+    const x = Math.round(p.x * 10) / 10, y = Math.round(p.y * 10) / 10;
+    UI.pending = null; push({...pend.e, x, y}); toast(describe(pend.e));
+  });
   const svg = document.getElementById('pullField'); if(!svg) return;
   svg.addEventListener('pointerup', ev => {
     const g = game(), st = derive(g), weP = !st.cur.o;
@@ -706,7 +727,9 @@ document.addEventListener('click', ev => {
     case 'skippull': push({k:'pull', team: derive(g).cur.o ? 'them' : 'us', p: null, x: null, y: null}); return;
     case 'goal': UI.pending = {step:'goal_s'}; break;
     case 'tt': case 'td': case 'ts': case 'd': case 'call': UI.pending = {step: a}; break;
-    case 'tx': case 'err': case 'tg': { const e = {k: a}; push(e); toast(describe(e)); if(a === 'tg') UI.lineSel = []; return; }
+    case 'tx': UI.pending = {step:'where', e: {k:'tx'}}; break;
+    case 'err': case 'tg': { const e = {k: a}; push(e); toast(describe(e)); if(a === 'tg') UI.lineSel = []; return; }
+    case 'noloc': { const e = UI.pending.e; UI.pending = null; push(e); toast(describe(e)); return; }
     case 'cancel': UI.pending = null; break;
     case 'dset': if(derive(g).dset !== b.dataset.v) push({k:'dset', v: b.dataset.v}); return;
     case 'noassist': { const e = {k:'goal', s: UI.pending.s, a: null}; UI.pending = null; push(e); toast(describe(e)); return; }
@@ -716,6 +739,7 @@ document.addEventListener('click', ev => {
       let e;
       if(pend.step === 'goal_a') e = {k:'goal', s: pend.s, a: pid};
       else e = {k: pend.step, p: pid};
+      if(LOC_EVENTS.includes(e.k)){ UI.pending = {step:'where', e}; break; }
       UI.pending = null; push(e); toast(describe(e)); return;
     }
     case 'endgame': if(!g.done) ask('Terminare la partita? Potrai riaprirla dalla lista.', 'Termina', () => { g.done = true; save(); UI.view = 'home'; }); return;
@@ -931,8 +955,12 @@ function scoutSheet(g, name){
     if(pl.team === 'us' && pl.p){
       const a = pulls.get(pl.p) || []; label = (nm(pl.p)[0] || 'P').toUpperCase() + (a.length + 1); a.push(label); pulls.set(pl.p, a);
     }
-    if(pl.x != null) (pl.team === 'us' ? dotsUs : dotsThem).push({x: pl.x, y: pl.y, label});
+    // sheet frame: opponent end on the left, Bubba end on the right
+    if(pl.x != null) (pl.team === 'us' ? dotsUs : dotsThem).push(pl.team === 'us'
+      ? {x: FIELD.L - pl.x, y: FIELD.W - pl.y, c: '#6D9EEB', label} : {x: pl.x, y: pl.y, c: '#E07A1F', label});
   }
+  const locDot = (pt, e, code) => { if(e.x == null) return;   // event frame: x from our back line -> mirror into sheet frame
+    (pt.o ? dotsThem : dotsUs).push({x: FIELD.L - e.x, y: FIELD.W - e.y, c: e.k === 'd' || e.k === 'call' ? '#00C800' : '#E53935', label: code}); };
   const HR = Math.max(17, 12 + pulls.size);
   for(const [blk, who] of [[BA, 'Bubba'], [BB, opp]]){
     set(10, blk + 1, 'Pull', {b:1, al:'right'}); set(10, blk + 2, who, {b:1});
@@ -942,7 +970,7 @@ function scoutSheet(g, name){
   [...pulls].forEach(([id, cs], i) => { set(11 + i, BA + 2, nm(id)); set(11 + i, BA + 3, cs.join(' ')); });
 
   const cnt = {M:0, A:0, T:0, D:0}, codes = {}, durs = {us:[], them:[]};
-  const T = {toO:0, toD:0, tt:0, td:0, ts:0, tx:0, ds:0, clean:0, dirty:0, chances:0, breaks:0, broken:0};
+  const T = {toO:0, toD:0, tt:0, td:0, ts:0, tx:0, ds:0, clean:0, dirty:0, chances:0, breaks:0, broken:0, nearGoal:0, located:0};
   const code = (k, id) => { const c = k + (++cnt[k]); if(id) (codes[id] || (codes[id] = [])).push(c); return c; };
   const TON = {tt:'lancio', td:'ricezione', ts:'stall', tx:'altro'};
   const cur = {[BA]: HR + 1, [BB]: HR + 1};
@@ -954,14 +982,17 @@ function scoutSheet(g, name){
     for(const e of pt.ev){
       switch(e.k){
         case 'tt': case 'td': case 'ts': case 'tx':
-          end(e, {code: code('T', e.p), p: e.p, note: TON[e.k]}); T[e.k]++; pt.o ? T.toO++ : T.toD++; side = 'them'; break;
-        case 'd': end(e, {code: code('D', e.p), p: e.p}); T.ds++; side = 'us'; if(!pt.o) T.chances++; break;
+        { const cd = code('T', e.p); end(e, {code: cd, p: e.p, note: TON[e.k]}); locDot(pt, e, cd);
+          T[e.k]++; pt.o ? T.toO++ : T.toD++; side = 'them';
+          if(e.x != null){ T.located++; if(e.x >= GOAL_X - 10) T.nearGoal++; } break; }
+        case 'd': { const cd = code('D', e.p); end(e, {code: cd, p: e.p}); locDot(pt, e, cd); T.ds++; side = 'us'; if(!pt.o) T.chances++; break; }
         case 'err': end(e, {note:'errore loro'}); side = 'us'; if(!pt.o) T.chances++; break;
         case 'goal':
           if(e.a){ end(e, {code: code('A', e.a), p: e.a}); out.push({code: code('M', e.s), p: e.s}); }
           else end(e, {code: code('M', e.s), p: e.s});
           break;
-        case 'call': end(e, {code: code('D', e.p), p: e.p, note:'Callahan'}); out.push({code: code('M', e.p), p: e.p}); T.ds++; if(!pt.o) T.chances++; break;
+        case 'call': { const cd = code('D', e.p); end(e, {code: cd, p: e.p, note:'Callahan'}); locDot(pt, e, cd); }
+          out.push({code: code('M', e.p), p: e.p}); T.ds++; if(!pt.o) T.chances++; break;
         case 'tg': end(e, {}); break;
         case 'dset': dset = e.v; break;
       }
@@ -982,7 +1013,7 @@ function scoutSheet(g, name){
   ids.forEach((id, i) => { set(17 + i, SM + 2, nm(id)); set(17 + i, SM + 3, (codes[id] || []).join(' - ')); });
   let r = 17 + ids.length + 1;
   set(r++, SM + 2, 'Turnover', HEAD);
-  [[T.toO, 'partendo in offence'], [T.toD, 'partendo in defence'], ['', 'davanti alla meta'], [T.td, 'presa'], [T.tt, 'lanci'],
+  [[T.toO, 'partendo in offence'], [T.toD, 'partendo in defence'], [T.located ? T.nearGoal : '', 'davanti alla meta (≤10 m)'], [T.td, 'presa'], [T.tt, 'lanci'],
    ...(T.ts ? [[T.ts, 'stall out']] : []), ...(T.tx ? [[T.tx, 'altro']] : []),
    [T.ds, 'difese'], [T.clean, 'attacchi puliti'], [T.dirty, 'attacchi con turnover'], [T.chances, 'occasioni di break'],
    [T.breaks, 'break fatti'], [T.broken, 'break contro']].forEach(([v, l]) => { set(r, SM + 1, v); set(r++, SM + 2, l); });
@@ -1001,13 +1032,13 @@ function scoutSheet(g, name){
   // pull fields above each block (like the drawings in the paper sheet): opponent end on the left, Bubba on the right
   const images = [];
   for(const [blk, dots, us] of [[BA, dotsUs, true], [BB, dotsThem, false]]){
-    const png = pullFieldPNG(dots, us, oppI);
+    const png = fieldPNG(dots, oppI);
     if(png) images.push({col: blk, row: 1, w: 400, h: 165, png, name: us ? 'Pull Bubba' : 'Pull ' + opp});
   }
   return {name, cells, cols, heights: {9: 84}, images};
 }
-// Field with pull landing spots as PNG bytes (null when canvas is unavailable)
-function pullFieldPNG(dots, us, oppI){
+// Field with dots ({x, y in sheet frame, c, label}) as PNG bytes (null when canvas is unavailable)
+function fieldPNG(dots, oppI){
   try{
     const K = 10, M = 5, W = (FIELD.L + 2 * M) * K, H = (FIELD.W + 2 * M) * K;
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
@@ -1024,12 +1055,16 @@ function pullFieldPNG(dots, us, oppI){
     c.fillText(oppI, X(FIELD.EZ / 2), Y(-M / 2)); c.fillText('B', X(FIELD.L - FIELD.EZ / 2), Y(-M / 2));
     c.font = 'bold 20px sans-serif'; c.textAlign = 'left';
     for(const d of dots){
-      // Bubba pulls from the right (x mirrored), opponents from the left; clamp out-of-bounds into the margin
-      const mx = Math.max(-M + 1, Math.min(FIELD.L + M - 1, us ? FIELD.L - d.x : d.x));
-      const my = Math.max(-M + 1, Math.min(FIELD.W + M - 1, us ? FIELD.W - d.y : d.y));
-      c.fillStyle = us ? '#6D9EEB' : '#E07A1F'; c.strokeStyle = '#003057'; c.lineWidth = 2;
+      // clamp out-of-bounds into the margin
+      const mx = Math.max(-M + 1, Math.min(FIELD.L + M - 1, d.x)), my = Math.max(-M + 1, Math.min(FIELD.W + M - 1, d.y));
+      c.fillStyle = d.c; c.strokeStyle = '#003057'; c.lineWidth = 2;
       c.beginPath(); c.arc(X(mx), Y(my), 9, 0, 2 * Math.PI); c.fill(); c.stroke();
       if(d.label){ c.fillStyle = '#003057'; c.fillText(d.label, X(mx) + 12, Y(my) - 12); }
+    }
+    c.font = '16px sans-serif'; c.textAlign = 'left'; let lx = X(FIELD.EZ);
+    for(const [col, t] of [['#6D9EEB', 'pull Bubba'], ['#E07A1F', 'pull loro'], ['#00C800', 'D'], ['#E53935', 'turnover']]){
+      c.fillStyle = col; c.beginPath(); c.arc(lx, Y(FIELD.W + M / 2), 7, 0, 2 * Math.PI); c.fill();
+      c.fillStyle = '#333'; c.fillText(t, lx + 12, Y(FIELD.W + M / 2)); lx += c.measureText(t).width + 45;
     }
     const url = cv.toDataURL('image/png');
     if(typeof url !== 'string' || !url.startsWith('data:image/png;base64,')) return null;
@@ -1061,7 +1096,7 @@ function exportSheets(games){
   allIds.sort((a,b) => (PN(a).g + PN(a).name).localeCompare(PN(b).g + PN(b).name));
   const lRows = [['Partita','Punto','Inizio','Esito', ...allIds.map(nm)]];
   const plRows = [['Partita','Punto','Squadra','Lanciatore','x (m dalla linea di fondo di chi lancia)','y (m)','Fuori','Distanza dalla meta di chi riceve (m)','Zona']];
-  const eRows = [['Partita','Punto','Tempo (mm:ss)','Evento','Giocatore','Assist','Descrizione']];
+  const eRows = [['Partita','Punto','Tempo (mm:ss)','Evento','Giocatore','Assist','Descrizione','x (m dalla nostra linea di fondo)','y (m)']];
   const EV = {start:'Inizio punto', pull:'Pull', goal:'Meta', call:'Callahan', tt:'TO lancio', td:'TO presa', ts:'Stall out', tx:'TO altro', d:'Difesa', err:'Errore loro', tg:'Meta loro', line:'Cambio linea', dset:'Schema difesa'};
   for(const g of games){
     const st = derive(g), t0 = g.events.length ? g.events[0].t : 0;
@@ -1079,7 +1114,7 @@ function exportSheets(games){
     for(const e of g.events){
       if(e.k === 'start') n++;
       const s = Math.round((e.t - t0) / 1000), tm = `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
-      eRows.push([g.opp, n, tm, EV[e.k] || e.k, nm(e.s || e.p), nm(e.a), describe(e)]);
+      eRows.push([g.opp, n, tm, EV[e.k] || e.k, nm(e.s || e.p), nm(e.a), describe(e), e.k !== 'pull' && e.x != null ? e.x : '', e.k !== 'pull' && e.y != null ? e.y : '']);
     }
   }
   const used = new Set();
@@ -1095,7 +1130,7 @@ function exportSheets(games){
     {name:'Punti', rows:ptRows, widths:[14,7,9,12,12,10,5,5,50,9,9,10]},
     {name:'Linee', rows:lRows},
     {name:'Pull', rows:plRows, widths:[14,7,9,12,14,8,7,14,20]},
-    {name:'Eventi', rows:eRows, widths:[14,7,10,14,12,12,50]}
+    {name:'Eventi', rows:eRows, widths:[14,7,10,14,12,12,50,16,8]}
   ];
 }
 function exportXLSX(games){
