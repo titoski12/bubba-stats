@@ -17,7 +17,8 @@ Rispondi in italiano, in modo conciso.
   - Regola rapporto ABBA: `ratioFor(g, n)` con `g.firstRatio` ('F' o 'M') scelto alla creazione partita.
   - Export Excel con writer .xlsx interno (zip STORE + XML, stili via `xStyles()`): per ogni partita un foglio
     "vs <avversario>" (`scoutSheet()`, stesso layout del foglio di scouting cartaceo/Google: griglia X/D per punto,
-    possessi divisi per chi fa il pull con codici M/A/T/D, riepilogo), poi Giocatori, Squadra, Punti, Linee, Pull, Eventi.
+    possessi divisi per chi fa il pull con codici M/A/T/D, riepilogo; sopra ogni blocco un PNG del campo con i pull,
+    disegnato su canvas da `pullFieldPNG()` e inserito come drawing), poi Giocatori, Squadra, Punti, Linee, Pull, Eventi.
     `download()` usa la share sheet (iOS) o un normale download.
   - Layout responsive: iPad e telefono (≤600px: giocatori 3+2, campo pull verticale in portrait).
 - `sw.js`: service worker cache-first → funziona offline. **A ogni modifica dei file incrementa `CACHE`** (`bubba-stats-v4` → `v5`…)

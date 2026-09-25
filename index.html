@@ -181,7 +181,7 @@ label.f input{padding:12px;border:2px solid var(--line);border-radius:10px;font-
    so "Annulla" just removes the last event.
    ============================================================ */
 
-const APP_VERSION = 'v4 · 25/09/2026';  // keep in sync with CACHE in sw.js
+const APP_VERSION = 'v5 · 25/09/2026';  // keep in sync with CACHE in sw.js
 const STORE_KEY = 'bubbaStats.v1';
 const FIELD = {L:75, W:25, EZ:15};          // metres; receiving goal line at x=60
 const GOAL_X = FIELD.L - FIELD.EZ;
@@ -766,7 +766,7 @@ function crc32(b){ let c = 0xFFFFFFFF; for(let i = 0; i < b.length; i++) c = CRC
 function zip(files){ // STORE-only zip
   const enc = new TextEncoder(), parts = [], cd = []; let off = 0;
   for(const [name, str] of files){
-    const nb = enc.encode(name), data = enc.encode(str), crc = crc32(data);
+    const nb = enc.encode(name), data = typeof str === 'string' ? enc.encode(str) : str, crc = crc32(data);
     const h = new DataView(new ArrayBuffer(30));
     h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(8, 0, true);
     h.setUint16(10, 0, true); h.setUint16(12, 0x21, true); h.setUint32(14, crc, true);
@@ -833,7 +833,7 @@ function sheetXML(sh, S){
   return x + '</worksheet>';
 }
 function gridXML(sh, S){ // free layout: sh.cells[row][col] = {v, s}, row 1-based, col 0-based
-  let x = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/>';
+  let x = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/>';
   const cols = Object.keys(sh.cols || {}).map(Number).sort((a, b) => a - b);
   if(cols.length) x += '<cols>' + cols.map(c => `<col min="${c+1}" max="${c+1}" width="${sh.cols[c]}" customWidth="1"/>`).join('') + '</cols>';
   x += '<sheetData>';
@@ -843,12 +843,22 @@ function gridXML(sh, S){ // free layout: sh.cells[row][col] = {v, s}, row 1-base
     x += `<row r="${r}"${h ? ` ht="${h}" customHeight="1"` : ''}>` +
       Object.keys(row).map(Number).sort((a, b) => a - b).map(c => cellXML(colName(c) + r, row[c].v, S.id(row[c].s))).join('') + '</row>';
   }
-  return x + '</sheetData></worksheet>';
+  return x + '</sheetData>' + (sh.images && sh.images.length ? '<drawing r:id="rId1"/>' : '') + '</worksheet>';
+}
+function drawingXML(images){ // images: [{col, row, w, h}] in 0-based cell + px
+  const E = 9525;
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+    images.map((im, k) => `<xdr:oneCellAnchor><xdr:from><xdr:col>${im.col}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${im.row}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:ext cx="${im.w * E}" cy="${im.h * E}"/>` +
+      `<xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${k + 2}" name="${xesc(im.name || 'Campo ' + (k + 1))}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr>` +
+      `<xdr:blipFill><a:blip r:embed="rId${k + 1}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>` +
+      `<xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${im.w * E}" cy="${im.h * E}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor>`).join('') +
+    '</xdr:wsDr>';
 }
 function buildXLSX(sheets){
   const files = [], S = xStyles();
-  files.push(['[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
-    sheets.map((s, i) => `<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('') + '</Types>']);
+  files.push(['[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+    sheets.map((s, i) => `<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` +
+      (s.images && s.images.length ? `<Override PartName="/xl/drawings/drawing${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>` : '')).join('') + '</Types>']);
   files.push(['_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>']);
   files.push(['xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>' +
     sheets.map((s, i) => `<sheet name="${xesc(s.name.slice(0,31))}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('') + '</sheets>' +
@@ -858,6 +868,16 @@ function buildXLSX(sheets){
     `<Relationship Id="rId${sheets.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`]);
   sheets.forEach((s, i) => files.push([`xl/worksheets/sheet${i+1}.xml`, sheetXML(s, S)]));
   files.push(['xl/styles.xml', S.xml()]);
+  const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships', RELS = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">';
+  let img = 0;
+  sheets.forEach((s, i) => {
+    if(!s.images || !s.images.length) return;
+    files.push([`xl/worksheets/_rels/sheet${i+1}.xml.rels`, RELS + `<Relationship Id="rId1" Type="${REL}/drawing" Target="../drawings/drawing${i+1}.xml"/></Relationships>`]);
+    files.push([`xl/drawings/drawing${i+1}.xml`, drawingXML(s.images)]);
+    files.push([`xl/drawings/_rels/drawing${i+1}.xml.rels`, RELS + s.images.map((im, k) => `<Relationship Id="rId${k+1}" Type="${REL}/image" Target="../media/image${img + k + 1}.png"/>`).join('') + '</Relationships>']);
+    s.images.forEach((im, k) => files.push([`xl/media/image${img + k + 1}.png`, im.png]));
+    img += s.images.length;
+  });
   return zip(files);
 }
 
@@ -904,9 +924,14 @@ function scoutSheet(g, name){
   if(lp && lp.scoreAfter) scoreCells(last, st.points.length, lp.scoreAfter);
 
   // right: possessions, split by who pulls
-  const pulls = new Map();
-  for(const pt of st.points) if(pt.pull && pt.pull.team === 'us' && pt.pull.p){
-    const a = pulls.get(pt.pull.p) || []; a.push((nm(pt.pull.p)[0] || 'P').toUpperCase() + (a.length + 1)); pulls.set(pt.pull.p, a);
+  const pulls = new Map(), dotsUs = [], dotsThem = [];
+  for(const pt of st.points){
+    const pl = pt.pull; if(!pl) continue;
+    let label = '';
+    if(pl.team === 'us' && pl.p){
+      const a = pulls.get(pl.p) || []; label = (nm(pl.p)[0] || 'P').toUpperCase() + (a.length + 1); a.push(label); pulls.set(pl.p, a);
+    }
+    if(pl.x != null) (pl.team === 'us' ? dotsUs : dotsThem).push({x: pl.x, y: pl.y, label});
   }
   const HR = Math.max(17, 12 + pulls.size);
   for(const [blk, who] of [[BA, 'Bubba'], [BB, opp]]){
@@ -971,9 +996,47 @@ function scoutSheet(g, name){
   Object.assign(cols, {0:2.75, 1:3.2, 2:3.5, 3:3.5, 4:3, 5:1.5, 6:5});
   ids.forEach((_, i) => cols[PC + i] = 3.3);
   cols[BA - 1] = 2.75;
-  for(const b of [BA, BB]) Object.assign(cols, {[b]:3, [b+1]:3, [b+2]:8, [b+3]:5.13, [b+4]:4.5, [b+5]:12.63, [b+6]:11});
+  for(const b of [BA, BB]) Object.assign(cols, {[b]:3, [b+1]:3, [b+2]:10, [b+3]:5.13, [b+4]:4.5, [b+5]:14, [b+6]:13});
   Object.assign(cols, {[BB - 1]:2.75, [SM]:4, [SM+1]:5, [SM+2]:20, [SM+3]:30});
-  return {name, cells, cols, heights: {9: 84}};
+  // pull fields above each block (like the drawings in the paper sheet): opponent end on the left, Bubba on the right
+  const images = [];
+  for(const [blk, dots, us] of [[BA, dotsUs, true], [BB, dotsThem, false]]){
+    const png = pullFieldPNG(dots, us, oppI);
+    if(png) images.push({col: blk, row: 1, w: 400, h: 165, png, name: us ? 'Pull Bubba' : 'Pull ' + opp});
+  }
+  return {name, cells, cols, heights: {9: 84}, images};
+}
+// Field with pull landing spots as PNG bytes (null when canvas is unavailable)
+function pullFieldPNG(dots, us, oppI){
+  try{
+    const K = 10, M = 5, W = (FIELD.L + 2 * M) * K, H = (FIELD.W + 2 * M) * K;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const c = cv.getContext('2d');
+    const X = m => (M + m) * K, Y = m => (M + m) * K;
+    c.fillStyle = '#fff'; c.fillRect(0, 0, W, H);
+    c.fillStyle = '#DDDDDD'; c.fillRect(X(0), Y(0), FIELD.EZ * K, FIELD.W * K); c.fillRect(X(FIELD.L - FIELD.EZ), Y(0), FIELD.EZ * K, FIELD.W * K);
+    c.strokeStyle = '#000'; c.lineWidth = 4; c.strokeRect(X(0), Y(0), FIELD.L * K, FIELD.W * K);
+    c.beginPath(); c.moveTo(X(FIELD.EZ), Y(0)); c.lineTo(X(FIELD.EZ), Y(FIELD.W)); c.moveTo(X(FIELD.L - FIELD.EZ), Y(0)); c.lineTo(X(FIELD.L - FIELD.EZ), Y(FIELD.W)); c.stroke();
+    c.lineWidth = 3;
+    for(const bx of [FIELD.EZ + 15, FIELD.L - FIELD.EZ - 15]){ const cx = X(bx), cy = Y(FIELD.W / 2), r = 8;
+      c.beginPath(); c.moveTo(cx - r, cy - r); c.lineTo(cx + r, cy + r); c.moveTo(cx + r, cy - r); c.lineTo(cx - r, cy + r); c.stroke(); }
+    c.fillStyle = '#000'; c.font = 'bold 30px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(oppI, X(FIELD.EZ / 2), Y(-M / 2)); c.fillText('B', X(FIELD.L - FIELD.EZ / 2), Y(-M / 2));
+    c.font = 'bold 20px sans-serif'; c.textAlign = 'left';
+    for(const d of dots){
+      // Bubba pulls from the right (x mirrored), opponents from the left; clamp out-of-bounds into the margin
+      const mx = Math.max(-M + 1, Math.min(FIELD.L + M - 1, us ? FIELD.L - d.x : d.x));
+      const my = Math.max(-M + 1, Math.min(FIELD.W + M - 1, us ? FIELD.W - d.y : d.y));
+      c.fillStyle = us ? '#6D9EEB' : '#E07A1F'; c.strokeStyle = '#003057'; c.lineWidth = 2;
+      c.beginPath(); c.arc(X(mx), Y(my), 9, 0, 2 * Math.PI); c.fill(); c.stroke();
+      if(d.label){ c.fillStyle = '#003057'; c.fillText(d.label, X(mx) + 12, Y(my) - 12); }
+    }
+    const url = cv.toDataURL('image/png');
+    if(typeof url !== 'string' || !url.startsWith('data:image/png;base64,')) return null;
+    const bin = atob(url.slice(22)), out = new Uint8Array(bin.length);
+    for(let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }catch(e){ return null; }
 }
 
 function exportSheets(games){
